@@ -1,13 +1,15 @@
-// 百合上门 - Service Worker (PWA 离线支持) v4
-const CACHE_NAME = 'rose-massage-v4';
+// 百合上门 - Service Worker (PWA 离线支持) v5
+// 缓存路径基于 Service Worker 实际部署位置，兼容任意仓库名/子路径
+const BASE = (self.location.pathname.endsWith('/') ? self.location.pathname : self.location.pathname.replace(/[^/]*$/, ''));
+const CACHE_NAME = 'baihe-door-v5';
 const urlsToCache = [
-  '/rose-massage/',
-  '/rose-massage/index.html',
-  '/rose-massage/login.html',
-  '/rose-massage/register_v2.html',
-  '/rose-massage/profile.html',
-  '/rose-massage/admin.html',
-  '/rose-massage/admin-login.html'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'login.html',
+  BASE + 'register_v2.html',
+  BASE + 'profile.html',
+  BASE + 'admin.html',
+  BASE + 'admin-login.html'
 ];
 self.addEventListener('install', function(e) {
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache)));
