@@ -81,11 +81,13 @@
 
   function push(binKey, data, cb) {
     if (!Array.isArray(data)) data = [];
-    var content = JSON.stringify(data);
-    // 大小检测（TextEncoder 跨浏览器+Node 通用）
-    var size = (typeof TextEncoder !== 'undefined')
-        ? new TextEncoder().encode(content).length
-        : content.length;
+    var jsonStr = JSON.stringify(data);
+    // GitHub Contents API 要求 content 是 base64 编码。UTF-8 安全（技师姓名/地址可能含中文）。
+    var bytes = new TextEncoder().encode(jsonStr);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    var content = btoa(bin);
+    var size = bytes.length;
     // 5MB 硬上限（raw 支持更大，但 PUT 请求体过大易失败/超时）
     if (size > 5 * 1024 * 1024) {
       console.warn('[cloud] ' + binKey + ' 超过 5MB (' + size + ' bytes)，跳过同步');
@@ -107,12 +109,19 @@
         body: JSON.stringify(body)
       })
       .then(function (r) {
-        if (r.ok) cb(true);
-        else cb(false);
+        if (r.ok) { console.log('[cloud] push ' + binKey + ' ✓ (' + size + ' bytes)'); cb(true); }
+        else {
+          r.text().then(function (txt) {
+            console.warn('[cloud] push ' + binKey + ' FAIL HTTP ' + r.status + ':', txt.substring(0, 200));
+          });
+          cb(false);
+        }
       })
-      .catch(function () { cb(false); });
+      .catch(function (e) { console.warn('[cloud] push ' + binKey + ' NETWORK ERR:', e && e.message); cb(false); });
     }
-    getSha(binKey).then(doPut).catch(function () { cb(false); });
+    getSha(binKey)
+      .then(doPut)
+      .catch(function (e) { console.warn('[cloud] getSha ' + binKey + ' ERR:', e && e.message); cb(false); });
   }
 
   function status(cb) {
