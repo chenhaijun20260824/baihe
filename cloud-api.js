@@ -1,124 +1,125 @@
 /**
- * cloud-api.js — 百合上门 云端适配器（MongoDB Atlas Data API）
- * 实现 window.RoseSyncAdapter 接口（pull / push / status），与 local-api.js 完全兼容。
+ * cloud-api.js — 百合上门 云端适配器（GitHub Repo as DB）
+ * 实现 window.RoseSyncAdapter 接口（pull / push / status）。
  *
  * 配置来源（优先级）：
- *   1) localStorage 键 '百合_cloud_cfg'         —— 通过 cloud-setup.html 运行时填写（推荐）
- *   2) window.BAIHE_CLOUD（cloud-config.js）   —— 部署前预填
+ *   1) localStorage 键 '百合_cloud_cfg'
+ *   2) window.BAIHE_CLOUD（cloud-config.js）
+ * 字段：{ token, owner, repo, branch='main', path='data' }
  *
- * 未配置时 RoseSyncAdapter 保持 null，应用自动回退到纯本地模式（localStorage），功能不受影响。
+ * 读取：anonymous raw.githubusercontent.com，无截断（不受 Gist 4MB 限制）。
+ * 写入：Contents API（GET sha → PUT），需要 token。
+ * 数据布局：{path}/{binKey}.json，每个文件是 JSON 数组。
  */
 (function () {
   'use strict';
   var LS_KEY = '百合_cloud_cfg';
 
+  function norm(c) {
+    return {
+      token: c.token,
+      owner: c.owner,
+      repo: c.repo,
+      branch: c.branch || 'main',
+      path: (c.path || 'data').replace(/\/+$/, '').replace(/^\/+/, '')
+    };
+  }
   function loadCfg() {
     try {
       var raw = localStorage.getItem(LS_KEY);
-      if (raw) { var c = JSON.parse(raw); if (c && c.apiUrl) return c; }
+      if (raw) { var c = JSON.parse(raw); if (c && c.token && c.owner && c.repo) return norm(c); }
     } catch (e) {}
-    try { if (window.BAIHE_CLOUD && window.BAIHE_CLOUD.apiUrl) return window.BAIHE_CLOUD; } catch (e) {}
+    try {
+      if (window.BAIHE_CLOUD && window.BAIHE_CLOUD.token && window.BAIHE_CLOUD.owner && window.BAIHE_CLOUD.repo)
+        return norm(window.BAIHE_CLOUD);
+    } catch (e) {}
     return null;
   }
 
   var cfg = loadCfg();
 
-  // 记录主键：优先 id，其次 account / accountId
-  function keyOf(it) {
-    if (!it || typeof it !== 'object') return null;
-    return it.id || it.account || it.accountId || null;
+  function filePath(binKey) {
+    var p = cfg.path;
+    return (p ? p + '/' : '') + binKey + '.json';
   }
-
-  // 调用 Atlas Data API 的单个 action
-  // URL: {apiUrl}/data/v1/action/{action}  —— apiUrl 为 Atlas App Services 显示的"基础 URL"（如 https://data.mongodb-api.com/app/{AppID}/endpoint），不含 /data/v1/action/...
-  // Body 包含 dataSource / database / collection 以及 action 专属参数；action 名称在 URL 路径里，不要放进 body
-  function atlas(action, collection, payload) {
-    return new Promise(function (resolve, reject) {
-      if (!cfg) { reject(new Error('cloud not configured')); return; }
-      var body = {
-        dataSource: cfg.dataSource,
-        database: cfg.database,
-        collection: collection
-      };
-      for (var k in payload) { if (payload.hasOwnProperty(k)) body[k] = payload[k]; }
-      var baseUrl = cfg.apiUrl.replace(/\/+$/, '');
-      var url = baseUrl + '/data/v1/action/' + action;
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apiKey': cfg.apiKey },
-        body: JSON.stringify(body)
-      })
-      .then(function (r) { return r.json().then(function (j) { return { status: r.status, json: j }; }); })
-      .then(function (res) {
-        if (res.status >= 200 && res.status < 300) resolve(res.json);
-        else reject(new Error((res.json && (res.json.error || res.json.message)) || ('HTTP ' + res.status)));
-      })
-      .catch(function (e) { reject(e); });
-    });
+  function rawUrl(binKey) {
+    return 'https://raw.githubusercontent.com/' + cfg.owner + '/' + cfg.repo + '/' + cfg.branch + '/' + filePath(binKey);
   }
-
-  // 去掉 Atlas 自动生成的 _id，避免 ObjectId 对象污染业务数据
-  function clean(doc) {
-    if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
-      var c = {}; for (var k in doc) { if (k !== '_id') c[k] = doc[k]; }
-      return c;
-    }
-    return doc;
+  function apiUrl(binKey) {
+    return 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + filePath(binKey) + '?ref=' + encodeURIComponent(cfg.branch);
+  }
+  function putUrl() {
+    return 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + filePath('%BIN%');
   }
 
   function pull(binKey, cb) {
-    atlas('find', binKey, { filter: {}, sort: { updateTime: -1 } })
-      .then(function (res) {
-        var docs = (res && res.documents) || [];
-        var arr = docs.map(clean).filter(Boolean);
-        cb(arr, true);
+    fetch(rawUrl(binKey))
+      .then(function (r) {
+        if (r.status === 200) return r.text();
+        if (r.status === 404) return '[]'; // 桶不存在 → 空数组
+        throw new Error('raw HTTP ' + r.status);
+      })
+      .then(function (txt) {
+        try { var a = JSON.parse(txt); cb(Array.isArray(a) ? a : [], true); }
+        catch (e) { cb([], true); }
       })
       .catch(function () { cb([], false); });
   }
 
+  function getSha(binKey) {
+    return fetch(apiUrl(binKey), {
+      headers: { 'Authorization': 'token ' + cfg.token, 'Accept': 'application/vnd.github+json' }
+    })
+    .then(function (r) {
+      if (r.status === 200) return r.json().then(function (j) { return j.sha; });
+      if (r.status === 404) return null;
+      throw new Error('sha HTTP ' + r.status);
+    });
+  }
+
   function push(binKey, data, cb) {
-    if (!cfg) { cb(false); return; }
     if (!Array.isArray(data)) data = [];
+    var content = JSON.stringify(data);
+    // 大小检测（TextEncoder 跨浏览器+Node 通用）
+    var size = (typeof TextEncoder !== 'undefined')
+        ? new TextEncoder().encode(content).length
+        : content.length;
+    // 5MB 硬上限（raw 支持更大，但 PUT 请求体过大易失败/超时）
+    if (size > 5 * 1024 * 1024) {
+      console.warn('[cloud] ' + binKey + ' 超过 5MB (' + size + ' bytes)，跳过同步');
+      cb(false);
+      return;
+    }
+    if (size > 500 * 1024) console.warn('[cloud] ' + binKey + ' 较大: ' + (size / 1024).toFixed(0) + 'KB');
 
-    // 1) 墓碑：本地已删除、且不在当前列表中的记录 → 云端也要删
-    var tomb = [];
-    try { tomb = JSON.parse(localStorage.getItem('rose_deleted_' + binKey) || '[]'); } catch (e) {}
-    var liveKeys = {};
-    data.forEach(function (it) { var k = keyOf(it); if (k) liveKeys[k] = true; });
-    var delIds = tomb.filter(function (id) { return id && !liveKeys[id]; });
-
-    var ops = [];
-    // 2) 每个存活记录 upsert（按主键定位，没有就插入）
-    data.forEach(function (it) {
-      var k = keyOf(it);
-      if (!k) return;
-      var filter;
-      if (it.id) filter = { id: it.id };
-      else if (it.account) filter = { account: it.account };
-      else filter = { accountId: it.accountId };
-      var doc = clean(it);
-      doc.id = doc.id || k; // 确保云端文档也带字符串主键，便于后续定位
-      ops.push(atlas('updateOne', binKey, { filter: filter, update: { $set: doc }, upsert: true }));
-    });
-    // 3) 删除墓碑
-    delIds.forEach(function (id) {
-      ops.push(atlas('deleteOne', binKey, { filter: { id: id } }));
-    });
-
-    if (ops.length === 0) { cb(true); return; }
-    Promise.all(ops.map(function (p) {
-      return p.then(function () { return true; }).catch(function () { return false; });
-    })).then(function (results) {
-      var ok = results.indexOf(false) === -1;
-      cb(ok);
-    });
+    function doPut(sha) {
+      var body = { message: 'sync ' + binKey + ' @ ' + new Date().toISOString(), content: content, branch: cfg.branch };
+      if (sha) body.sha = sha;
+      fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + filePath(binKey), {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'token ' + cfg.token,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+      .then(function (r) {
+        if (r.ok) cb(true);
+        else cb(false);
+      })
+      .catch(function () { cb(false); });
+    }
+    getSha(binKey).then(doPut).catch(function () { cb(false); });
   }
 
   function status(cb) {
     if (!cfg) { cb(false, false, ''); return; }
-    atlas('find', 'notices', { filter: {}, limit: 1 })
-      .then(function () { cb(true, true, cfg.apiUrl); })
-      .catch(function () { cb(true, false, cfg.apiUrl); });
+    fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo, {
+      headers: { 'Authorization': 'token ' + cfg.token, 'Accept': 'application/vnd.github+json' }
+    })
+    .then(function (r) { cb(true, r.ok, cfg.owner + '/' + cfg.repo); })
+    .catch(function () { cb(true, false, cfg.owner + '/' + cfg.repo); });
   }
 
   if (cfg) {
@@ -128,5 +129,5 @@
     window.百合_openCloudSetup = function () { location.href = 'cloud-setup.html'; };
   }
 
-  console.log('[百合上门] cloud-api.js 已加载，' + (cfg ? '已连接云端(MongoDB Atlas)' : '未配置云端 → 纯本地模式'));
+  console.log('[百合上门] cloud-api.js (GitHub Repo) loaded — ' + (cfg ? cfg.owner + '/' + cfg.repo + ' / ' + cfg.path : 'not configured → local mode'));
 })();
