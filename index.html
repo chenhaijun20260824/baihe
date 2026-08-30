@@ -365,26 +365,23 @@ function doSearch(q) {
   }
 }
 
-function init() {
-  var loaded = 0;
-  var techs = [];
-  var notices = [];
-  function done() {
-    if (++loaded === 2) {
-      renderNotice(notices);
-      renderTechs(techs, 'newBox', true);
-      renderTechs(techs, 'techBox', false);
-    }
-  }
+var _homeNotices = [];
+function refreshHome() {
   JB.get('technicians', function(data) {
     allTechs = Array.isArray(data) ? data : [];
-    techs = allTechs;
-    done();
+    renderTechs(allTechs, 'newBox', true);
+    renderTechs(allTechs, 'techBox', false);
   });
   JB.get('notices', function(data) {
-    notices = Array.isArray(data) ? data : [];
-    done();
+    _homeNotices = Array.isArray(data) ? data : [];
+    renderNotice(_homeNotices);
   });
+}
+function init() {
+  refreshHome();
+  // 切回标签页 / 重新显示时自动重新拉取，确保显示最新审核通过的技师（多设备同步）
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshHome(); });
+  window.addEventListener('pageshow', function () { refreshHome(); });
 }
 
 function openCloudModal() {
