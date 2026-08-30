@@ -7,12 +7,13 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background:#FFF5F7; color:#333; min-height:100vh; padding:20px; }
-  .card { background:#fff; border-radius:16px; padding:24px; max-width:520px; margin:20px auto; box-shadow:0 4px 20px rgba(0,0,0,.08); }
+  .card { background:#fff; border-radius:16px; padding:24px; max-width:540px; margin:20px auto; box-shadow:0 4px 20px rgba(0,0,0,.08); }
   h2 { color:#C2185B; text-align:center; margin-bottom:6px; }
   .sub { text-align:center; color:#999; font-size:13px; margin-bottom:18px; }
   .form-group { margin-bottom:14px; }
   label { display:block; font-size:13px; color:#666; margin-bottom:6px; font-weight:500; }
-  input { width:100%; padding:11px 14px; border:1.5px solid #e0e0e0; border-radius:10px; font-size:14px; outline:none; box-sizing:border-box; }
+  label .hint { font-weight:normal; color:#999; font-size:12px; }
+  input { width:100%; padding:11px 14px; border:1.5px solid #e0e0e0; border-radius:10px; font-size:14px; outline:none; box-sizing:border-box; font-family:inherit; }
   input:focus { border-color:#C2185B; }
   .btn { width:100%; padding:13px; background:linear-gradient(135deg,#C2185B,#E91E63); color:#fff; border:none; border-radius:10px; font-size:16px; font-weight:bold; cursor:pointer; margin-top:6px; }
   .btn:active { transform:scale(.98); }
@@ -23,39 +24,38 @@
   .tip-info { background:#E3F2FD; color:#1565C0; }
   a { color:#C2185B; }
   .step { font-size:12px; color:#666; line-height:1.8; background:#fafafa; border-radius:10px; padding:10px 12px; margin-bottom:14px; }
-  code { background:#f0f0f0; padding:1px 5px; border-radius:4px; }
+  code { background:#f0f0f0; padding:1px 5px; border-radius:4px; word-break:break-all; }
 </style>
 </head>
 <body>
 <div class="card">
   <h2>☁️ 云端配置</h2>
-  <div class="sub">填写 MongoDB Atlas Data API 信息，让任意设备都能注册与访问</div>
+  <div class="sub">用 GitHub 仓库当云数据库 · 无大小截断</div>
 
   <div class="step">
-    <b>获取方法：</b><br>
-    1. 注册并登录 <a href="https://cloud.mongodb.com" target="_blank">cloud.mongodb.com</a>，免费创建 M0 集群；<br>
-    2. 左侧 <b>App Services</b> → <b>Create App</b>（取个名字如 BaiheApp，区域近你）→ 在创建向导里 <b>Link a data source</b> 选你的 Cluster0；<br>
-    3. 等 App 部署完（约 1-3 分钟）→ 进入 App → 左侧 <b>Data API</b> → 点 <b>Enable the Data API</b>；<br>
-    4. 在 Data API 页：<b>API Keys</b> 选项卡 → Create API Key → 复制 Key；<b>CORS / Allowed Origins</b> 添加 <code>https://chenhaijun770528.github.io</code>（或临时填 <code>*</code>）；<br>
-    5. 回到 Data API 主页，复制顶部的 <b>Endpoint URL</b>（形如 <code>https://data.mongodb-api.com/app/xxx/endpoint</code>，不要包含 <code>/data/v1/action/...</code>）。<br>
-    集群名（dataSource）默认 <code>Cluster0</code>，数据库名自定义（如 baihe）。
+    <b>准备工作（一次性）：</b><br>
+    1. 登录 GitHub → <b>New repository</b> → 名字如 <code>baihe-data</code>，Public，<b>Initialize with README</b> 打勾；<br>
+    2. 进入仓库 → 顶部 <b>Add file → Create new file</b> → 路径填 <code>data/accounts.json</code>，内容 <code>[]</code>，提交；<br>
+    3. 同样创建 <code>data/technicians.json</code> / <code>data/notices.json</code> / <code>data/audit_log.json</code>，内容都是 <code>[]</code>；<br>
+    4. GitHub → <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens</b>，建一个有 <code>Contents: Read and write</code> 权限（限定到 <code>baihe-data</code> 仓库）的 Token，复制。<br>
+    <span style="color:#999">老式 Token 也行，只要勾了 <code>repo</code> 权限即可。</span>
   </div>
 
   <div class="form-group">
-    <label>Data API Endpoint URL *（填 App Services Data API 顶部的基础 URL，不要带 /data/v1/action/）</label>
-    <input id="apiUrl" placeholder="https://data.mongodb-api.com/app/你的AppID/endpoint">
+    <label>GitHub Token <span class="hint">（需有 repo / Contents 写权限）</span></label>
+    <input id="token" placeholder="ghp_..." autocomplete="off">
   </div>
   <div class="form-group">
-    <label>API Key *</label>
-    <input id="apiKey" placeholder="粘贴你的 Data API Key">
+    <label>仓库 <span class="hint">（owner/repo）</span></label>
+    <input id="repo" placeholder="chenhaijun20260824/baihe-data" value="chenhaijun20260824/baihe-data">
   </div>
   <div class="form-group">
-    <label>集群名 (dataSource)</label>
-    <input id="dataSource" placeholder="Cluster0" value="Cluster0">
+    <label>分支 <span class="hint">（默认 main）</span></label>
+    <input id="branch" placeholder="main" value="main">
   </div>
   <div class="form-group">
-    <label>数据库名 (database)</label>
-    <input id="database" placeholder="baihe" value="baihe">
+    <label>数据文件夹 <span class="hint">（桶文件放这里）</span></label>
+    <input id="path" placeholder="data" value="data">
   </div>
 
   <button class="btn" onclick="testConn()">① 测试连接</button>
@@ -63,63 +63,73 @@
   <button class="btn" id="saveBtn" onclick="save()" style="margin-top:12px;">② 保存并启用云端</button>
   <button class="btn ghost" onclick="location.href='index.html'">稍后配置（先用本地模式）</button>
 </div>
-
 <script>
 function $(id){ return document.getElementById(id); }
 function show(msg, cls){ var t=$('tip'); t.className='tip '+cls; t.innerHTML=msg; t.style.display='block'; }
 
-// 预填已保存的配置
 (function(){
   try {
     var raw = localStorage.getItem('百合_cloud_cfg');
-    if (raw) { var c = JSON.parse(raw);
-      $('apiUrl').value = c.apiUrl||''; $('apiKey').value=c.apiKey||'';
-      $('dataSource').value = c.dataSource||'Cluster0'; $('database').value=c.database||'baihe';
+    if (raw) {
+      var c = JSON.parse(raw);
+      if (c.token) $('token').value = c.token;
+      if (c.owner && c.repo) $('repo').value = c.owner + '/' + c.repo;
+      if (c.branch) $('branch').value = c.branch;
+      if (c.path) $('path').value = c.path;
     }
   } catch(e){}
 })();
 
 function readForm(){
+  var repoVal = $('repo').value.trim();
+  var owner = '', repo = '';
+  var i = repoVal.indexOf('/');
+  if (i > 0) { owner = repoVal.slice(0, i).trim(); repo = repoVal.slice(i + 1).trim(); }
   return {
-    apiUrl: $('apiUrl').value.trim(),
-    apiKey: $('apiKey').value.trim(),
-    dataSource: $('dataSource').value.trim() || 'Cluster0',
-    database: $('database').value.trim() || 'baihe'
+    token: $('token').value.trim(),
+    owner: owner,
+    repo: repo,
+    branch: $('branch').value.trim() || 'main',
+    path: ($('path').value.trim() || 'data').replace(/^\/+|\/+$/g, '')
   };
-}
-
-// 独立的 Atlas 调用（不依赖 cloud-api.js），用于测试
-// Atlas Data API 要求 URL 路径为 {baseUrl}/data/v1/action/{action}，action 名不进 body
-function atlasTest(cfg, action, collection, payload){
-  var body = { dataSource: cfg.dataSource, database: cfg.database, collection: collection };
-  for (var k in payload){ if(payload.hasOwnProperty(k)) body[k]=payload[k]; }
-  var baseUrl = cfg.apiUrl.replace(/\/+$/, '');
-  var url = baseUrl + '/data/v1/action/' + action;
-  return fetch(url, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json', 'apiKey': cfg.apiKey },
-    body: JSON.stringify(body)
-  }).then(function(r){ return r.json().then(function(j){ return { status:r.status, json:j }; }); });
 }
 
 function testConn(){
   var cfg = readForm();
-  if (!cfg.apiUrl || !cfg.apiKey){ show('请填写 Endpoint URL 和 API Key', 'tip-err'); return; }
+  if (!cfg.token) { show('请填写 GitHub Token', 'tip-err'); return; }
+  if (!cfg.owner || !cfg.repo) { show('仓库格式应为 owner/repo', 'tip-err'); return; }
   show('正在测试连接…', 'tip-info');
-  atlasTest(cfg, 'find', 'notices', { filter:{}, limit:1 })
-    .then(function(res){
-      if (res.status>=200 && res.status<300){ show('✅ 连接成功！已可访问集群 <b>'+cfg.dataSource+'</b> / 数据库 <b>'+cfg.database+'</b>。点击「保存并启用云端」完成配置。', 'tip-ok'); }
-      else { var m = (res.json && (res.json.error||res.json.message)) || ('HTTP '+res.status); show('❌ 连接失败：'+m, 'tip-err'); }
-    })
-    .catch(function(e){ show('❌ 网络错误：'+ (e && e.message ? e.message : e) +'<br>请确认 Endpoint URL 正确、且 Atlas Data API 的 CORS 已允许当前域名（可临时填 *）。', 'tip-err'); });
+  fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo, {
+    headers: { 'Authorization': 'token ' + cfg.token, 'Accept': 'application/vnd.github+json' }
+  })
+  .then(function(r){
+    if (r.status === 200) return r.json();
+    if (r.status === 404) throw new Error('仓库 ' + cfg.owner + '/' + cfg.repo + ' 不存在或无权访问');
+    if (r.status === 401) throw new Error('Token 无效或已过期');
+    throw new Error('HTTP ' + r.status);
+  })
+  .then(function(j){
+    // 顺便检查一个桶文件是否可读
+    return fetch('https://raw.githubusercontent.com/' + cfg.owner + '/' + cfg.repo + '/' + cfg.branch + '/' + cfg.path + '/accounts.json')
+      .then(function(r2){
+        var bucketInfo = (r2.status === 200) ? '· 数据桶文件可读 ✓' : '· 数据桶文件尚未创建（保存后会自动创建）';
+        show('✅ 连接成功！<br>仓库：<b>' + j.full_name + '</b>（默认分支 <b>' + j.default_branch + '</b>）<br>' + bucketInfo + '<br>点击「保存并启用」完成配置。', 'tip-ok');
+      });
+  })
+  .catch(function(e){
+    show('❌ ' + (e && e.message ? e.message : e) + '<br>请检查：Token 是否有效且有 Contents 写权限、仓库名是否正确、是否设置了 raw 公开读取。', 'tip-err');
+  });
 }
 
 function save(){
   var cfg = readForm();
-  if (!cfg.apiUrl || !cfg.apiKey){ show('请先填写 Endpoint URL 和 API Key', 'tip-err'); return; }
+  if (!cfg.token || !cfg.owner || !cfg.repo) {
+    show('请先填写 Token 和 仓库', 'tip-err');
+    return;
+  }
   localStorage.setItem('百合_cloud_cfg', JSON.stringify(cfg));
   show('✅ 已保存！正在跳转首页…', 'tip-ok');
-  setTimeout(function(){ location.href='index.html'; }, 800);
+  setTimeout(function(){ location.href = 'index.html'; }, 800);
 }
 </script>
 </body>
