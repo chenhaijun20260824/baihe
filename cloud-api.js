@@ -122,8 +122,40 @@
     .catch(function () { cb(true, false, cfg.owner + '/' + cfg.repo); });
   }
 
+  // 上传一张图片到 {repo}/images/{filename}，返回 raw.githubusercontent.com 的 CDN 链接
+  function uploadImage(filename, blob, cb) {
+    if (!cfg || !blob) { cb(null); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = reader.result;
+      var comma = dataUrl.indexOf(',');
+      var b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+      var imgPath = 'images/' + filename;
+      fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + imgPath, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'token ' + cfg.token,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'img ' + filename, content: b64, branch: cfg.branch })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.content && j.content.path) {
+          cb('https://raw.githubusercontent.com/' + cfg.owner + '/' + cfg.repo + '/' + cfg.branch + '/' + imgPath);
+        } else {
+          console.warn('[cloud] image upload failed:', j && j.message);
+          cb(null);
+        }
+      })
+      .catch(function () { cb(null); });
+    };
+    reader.readAsDataURL(blob);
+  }
+
   if (cfg) {
-    window.RoseSyncAdapter = { pull: pull, push: push, status: status };
+    window.RoseSyncAdapter = { pull: pull, push: push, status: status, uploadImage: uploadImage };
     try { localStorage.setItem('百合_server_online', '1'); } catch (e) {}
   } else {
     window.百合_openCloudSetup = function () { location.href = 'cloud-setup.html'; };
