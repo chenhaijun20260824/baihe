@@ -218,7 +218,7 @@ window.imgErr = function(img) {
     <a class="top-btn" href="login.html?v=20260817">👤 登录</a>
     <a class="top-btn" href="register_v2.html?v=20260824">📝 注册</a>
     <a class="top-btn" href="profile.html?v=20260817">💆 我的</a>
-    <a class="top-btn" href="javascript:void(0)" onclick="openCloudModal()">☁️ 云端</a>
+    <a id="cloudBadge" class="top-btn" href="javascript:void(0)" onclick="openCloudModal()" style="border-color:#e0e0e0;color:#888;">☁️ 云端</a>
     </div>
 
   <div class="search-bar">
@@ -396,7 +396,9 @@ function openCloudModal() {
     body.innerHTML =
       '<h3 style="color:#C2185B;margin-bottom:10px;font-size:18px;">✅ 云端已连接</h3>' +
       '<p style="color:#666;font-size:13px;margin-bottom:14px;">仓库：<b>' + (cfg.owner || 'chenhaijun20260824') + '/' + (cfg.repo || 'baihe-data') + '</b></p>' +
-      '<button class="btn" onclick="copyConnectCode()">📋 复制连接码（给其它设备）</button>' +
+      '<button class="btn" onclick="testCloudSync()">📡 测试同步</button>' +
+      '<button class="btn" onclick="forceSyncNow()">📤 立即同步本机数据到云端</button>' +
+      '<button class="btn ghost" onclick="copyConnectCode()">📋 复制连接码（给其它设备）</button>' +
       '<button class="btn ghost" onclick="disconnectCloud()">断开云端</button>' +
       '<button class="btn ghost" onclick="closeCloudModal()">关闭</button>';
   } else {
@@ -411,14 +413,54 @@ function openCloudModal() {
   modal.style.display = 'flex';
 }
 function closeCloudModal() { var m=document.getElementById('cloudModal'); if(m) m.style.display='none'; }
+function testToken(tk, cb) {
+  fetch('https://api.github.com/repos/chenhaijun20260824/baihe-data', {
+    headers: { 'Authorization': 'token ' + tk, 'Accept': 'application/vnd.github+json' }
+  }).then(function(r){ cb(r.ok); }).catch(function(){ cb(false); });
+}
 function doConnectFromModal() {
   var i = document.getElementById('cloudTokenInput');
   var t = i ? i.value.trim() : '';
   if (!t) { toast('请输入连接码'); return; }
-  localStorage.setItem('百合_cloud_cfg', JSON.stringify({ token: t }));
-  closeCloudModal();
-  toast('已连接，正在同步…');
-  setTimeout(function(){ location.reload(); }, 700);
+  toast('正在验证连接码…');
+  testToken(t, function(ok){
+    if (!ok) { toast('连接码无效或无权限访问仓库 ✗'); return; }
+    var def = (typeof window !== 'undefined' && window.BAIHE_CLOUD) || {};
+    localStorage.setItem('百合_cloud_cfg', JSON.stringify({
+      token: t,
+      owner: def.owner || 'chenhaijun20260824',
+      repo: def.repo || 'baihe-data',
+      branch: def.branch || 'main',
+      path: def.path || 'data'
+    }));
+    closeCloudModal();
+    toast('已连接，正在同步…');
+    setTimeout(function(){ location.reload(); }, 700);
+  });
+}
+function cloudIsConnected() {
+  try { var c = JSON.parse(localStorage.getItem('百合_cloud_cfg') || 'null'); return !!(c && c.token); } catch(e){ return false; }
+}
+function renderCloudBadge() {
+  var el = document.getElementById('cloudBadge');
+  if (!el) return;
+  if (cloudIsConnected()) { el.textContent = '☁️ 已连'; el.style.borderColor = '#4CAF50'; el.style.color = '#2E7D32'; }
+  else { el.textContent = '☁️ 云端'; el.style.borderColor = '#e0e0e0'; el.style.color = '#888'; }
+}
+function testCloudSync() {
+  if (!window.JB || !window.RoseSyncAdapter) { toast('未连接云端（适配器未初始化）'); return; }
+  JB.get('technicians', function(arr, ok){
+    toast(ok ? ('云端可读 ✓ 当前 ' + (Array.isArray(arr)?arr.length:0) + ' 条') : '云端读取失败 ✗');
+  });
+}
+function forceSyncNow() {
+  if (!window.JB || !window.RoseSyncAdapter) { toast('未连接云端'); return; }
+  toast('正在同步本机数据到云端…');
+  JB.syncAll(function(){
+    JB.get('technicians', function(arr, ok){
+      toast(ok ? ('已同步 ✓ 云端 ' + (Array.isArray(arr)?arr.length:0) + ' 条') : '同步失败 ✗');
+    });
+  });
 }
 function copyConnectCode() {
   var cfg = null;
@@ -440,6 +482,7 @@ function disconnectCloud() {
   setTimeout(function(){ location.reload(); }, 700);
 }
 
+renderCloudBadge();
 init();
 </script>
 
