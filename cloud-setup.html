@@ -128,8 +128,13 @@ function save(){
     return;
   }
   localStorage.setItem('百合_cloud_cfg', JSON.stringify(cfg));
-  show('✅ 已保存！正在跳转首页…', 'tip-ok');
-  setTimeout(function(){ location.href = 'index.html'; }, 800);
+  var card = document.querySelector('.card');
+  card.innerHTML =
+    '<h2>✅ 已保存</h2>' +
+    '<div class="sub">云端配置已生效</div>' +
+    '<div class="tip tip-ok" style="display:block;">Token 与仓库已写入本设备浏览器。<br>刷新要同步数据的页面（首页 / admin 后台）即可开始云端同步。</div>' +
+    '<button class="btn" onclick="location.href=\'admin.html\'" style="margin-top:14px;">去 admin 后台</button>' +
+    '<button class="btn ghost" onclick="location.href=\'index.html\'">返回首页</button>';
 }
 </script>
 </body>
