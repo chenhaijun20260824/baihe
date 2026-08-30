@@ -222,8 +222,17 @@ window.imgErr = function(img) {
 <div class="header">🌹 管理员后台 <span id="cloudBadge" class="cloud-badge" style="display:none;"></span></div>
 <div style="text-align:center;font-size:11px;color:#999;margin:4px 0 10px;">v2.2 · 限速修复版 · 2026-08-15</div>
   <div id="adminCloudBar" style="text-align:center;margin:6px 0;">
-    <button class="btn btn-sm" onclick="location.href='cloud-setup.html'" id="adminCloudBtn">☁️ 连接云端</button>
+    <button class="btn btn-sm" onclick="toggleAdminCloudInput()" id="adminCloudBtn">☁️ 连接云端</button>
     <span id="adminCloudStatus" style="font-size:12px;color:#2E7D32;margin-left:6px;"></span>
+  </div>
+  <div id="adminCloudInput" style="display:none;text-align:center;margin:8px 0;">
+    <div style="font-size:12px;color:#666;margin-bottom:6px;">粘贴 GitHub Token 即连接（仓库/分支/路径已预设）</div>
+    <input id="adminTokenInput" type="password" placeholder="ghp_..." autocomplete="off" style="width:82%;max-width:340px;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;box-sizing:border-box;">
+    <div style="margin-top:8px;">
+      <button class="btn btn-sm" onclick="saveAdminCloud()">保存并启用</button>
+      <button class="btn btn-sm" style="background:#eee;color:#666;" onclick="toggleAdminCloudInput()">取消</button>
+    </div>
+    <div id="adminCloudMsg" style="font-size:12px;margin-top:6px;min-height:16px;color:#1565C0;"></div>
   </div>
 <div id="loginView">
 <div class="login-box">
@@ -691,6 +700,38 @@ function delNotice(id) {
     });
   }
   tryPush();
+}
+
+// admin 页内直接配置云端（不跳转）
+function toggleAdminCloudInput() {
+  var el = document.getElementById('adminCloudInput');
+  if (!el) return;
+  if (el.style.display === 'none') { el.style.display = 'block'; var ti = document.getElementById('adminTokenInput'); if (ti) ti.focus(); }
+  else { el.style.display = 'none'; }
+}
+function saveAdminCloud() {
+  var t = document.getElementById('adminTokenInput').value.trim();
+  var msg = document.getElementById('adminCloudMsg');
+  if (!t) { if (msg) { msg.style.color = '#c62828'; msg.textContent = '请输入 Token'; } return; }
+  if (msg) { msg.style.color = '#1565C0'; msg.textContent = '正在验证 Token…'; }
+  fetch('https://api.github.com/repos/chenhaijun20260824/baihe-data', {
+    headers: { 'Authorization': 'token ' + t, 'Accept': 'application/vnd.github+json' }
+  })
+  .then(function(r) {
+    if (r.status === 200) return r.json();
+    if (r.status === 401) throw new Error('Token 无效或已过期');
+    if (r.status === 404) throw new Error('无仓库访问权限');
+    throw new Error('HTTP ' + r.status);
+  })
+  .then(function() {
+    var cfg = { token: t, owner: 'chenhaijun20260824', repo: 'baihe-data', branch: 'main', path: 'data' };
+    try { localStorage.setItem('百合_cloud_cfg', JSON.stringify(cfg)); } catch(e) {}
+    if (msg) { msg.style.color = '#2E7D32'; msg.textContent = '已保存 ✓ 正在刷新…'; }
+    setTimeout(function(){ location.reload(); }, 900);
+  })
+  .catch(function(e) {
+    if (msg) { msg.style.color = '#c62828'; msg.textContent = (e && e.message ? e.message : e); }
+  });
 }
 
 // 自动检测云端连接状态
