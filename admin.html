@@ -444,56 +444,46 @@ function renderAll(list) {
 }
 
 function doAudit(id, action) {
-  // 【修复】先立即更新本地缓存，防止 syncAll 竞态覆盖管理员审核结果
-  try {
-    var _lst = JB._getLocal(TECH_KEY) || [];
-    var _changed = false;
-    for (var _ii = 0; _ii < _lst.length; _ii++) {
-      if (_lst[_ii].id === id) { _lst[_ii].status = action === 'approve' ? '已通过' : '已拒绝'; _lst[_ii].auditTime = Date.now(); _changed = true; break; }
-    }
-    if (_changed) JB._setLocal(TECH_KEY, _lst);
-  } catch(_e) {}
-  JB.get(TECH_KEY, function(list) {
-    if (!Array.isArray(list)) list = [];
-    var tech = null;
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].id === id) { tech = list[i]; break; }
-    }
-    if (!tech) { toast('未找到该记录'); return; }
-    tech.status = action === 'approve' ? '已通过' : '已拒绝';
-    tech.auditTime = Date.now();
-    // 更新列表中对应项
-    for (var j = 0; j < list.length; j++) {
-      if (list[j].id === id) { list[j] = tech; break; }
-    }
-    var writeLog = function() {
-      JB.get(LOG_KEY, function(logs) {
-        if (!Array.isArray(logs)) logs = [];
-        logs.unshift({
-          id: tech.id,
-          name: tech.name,
-          phone: tech.phone,
-          account: tech.account || '',
-          action: action === 'approve' ? '通过' : '拒绝',
-          time: Date.now()
-        });
-        if (logs.length > 500) logs = logs.slice(0, 500);
-        JB.put(LOG_KEY, logs, function() { loadAll(); });
-      });
-    };
-    var okMsg = action === 'approve' ? '已通过 ✓' : '已拒绝 ✗';
+  // 以本地最新数据为权威源，避免云端 pull 竞态把刚改的状态覆盖回去
+  var list = JB._getLocal(TECH_KEY) || [];
+  var tech = null;
+  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { tech = list[i]; break; } }
+  if (!tech) {
+    // 本地没有就拉一次云端再处理
+    JB.get(TECH_KEY, function(cloudList) { doAuditApply(cloudList || [], id, action); });
+    return;
+  }
+  doAuditApply(list, id, action);
+}
+
+function doAuditApply(list, id, action) {
+  var tech = null;
+  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { tech = list[i]; break; } }
+  if (!tech) { toast('未找到该记录'); return; }
+  tech.status = action === 'approve' ? '已通过' : '已拒绝';
+  tech.auditTime = Date.now();
+  tech.updateTime = Date.now();
+  for (var j = 0; j < list.length; j++) { if (list[j].id === id) { list[j] = tech; break; } }
+  JB._setLocal(TECH_KEY, list);
+  // 立即重渲染：待审核项立刻消失，全部技师立刻显示新状态
+  try { renderPending(list); renderAll(list); updateCounts(list, JB._getLocal(LOG_KEY) || []); } catch (e) {}
+  var okMsg = action === 'approve' ? '已通过 ✓' : '已拒绝 ✗';
+  toast(okMsg);
+  // 推云端（指数退避重试，最多3次）
+  var _delays = [1500, 4000, 9000], _attempt = 0;
+  (function _tryPush() {
     JB.put(TECH_KEY, list, function(ok) {
-      if (!ok) {
-        setCloudBadge(false, '本地模式（云端稍后同步）');
-        toast(okMsg);
-        writeLog();
-        return;
-      }
-      setCloudBadge(true, '云端已连接');
-      toast(okMsg);
-      writeLog();
+      if (ok) { setCloudBadge(true, '云端已连接'); return; }
+      if (_attempt < _delays.length) { var w = _delays[_attempt]; _attempt++; setCloudBadge(false, '重试同步中...'); setTimeout(_tryPush, w); }
+      else { setCloudBadge(false, '本地模式'); toast('云端同步失败，数据已存本地'); }
     });
-  });
+  })();
+  // 写审核日志
+  var logs = JB._getLocal(LOG_KEY) || [];
+  logs.unshift({ id: tech.id, name: tech.name, phone: tech.phone, account: tech.account || '', action: action === 'approve' ? '通过' : '拒绝', time: Date.now() });
+  if (logs.length > 500) logs = logs.slice(0, 500);
+  JB._setLocal(LOG_KEY, logs);
+  JB.put(LOG_KEY, logs, function() { if (typeof loadHistory === 'function') loadHistory(); });
 }
 
 function approve(id) { doAudit(id, 'approve'); }
