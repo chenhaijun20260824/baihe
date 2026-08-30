@@ -262,6 +262,7 @@ window.imgErr = function(img) {
 var photos = [];
 var myTech = null;
 var user = null;
+var pendingUploads = 0; // 正在上传的图片数，提交时需等其归零
 
 function toast(msg) {
   var el = document.createElement('div');
@@ -331,19 +332,49 @@ function delPhoto(i) {
   renderPhotos();
 }
 
+function dataURLtoBlob(dataUrl) {
+  try {
+    var parts = dataUrl.split(',');
+    var mime = (parts[0].match(/:(.*?);/) || [,'image/jpeg'])[1];
+    var bstr = atob(parts[1]);
+    var n = bstr.length;
+    var u8 = new Uint8Array(n);
+    while (n--) u8[n] = bstr.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+  } catch (e) { return null; }
+}
+
+// 存一张照片：云端优先（上传 GitHub 图床拿 URL），失败则本地 base64 兜底
+function storePhoto(file, cb) {
+  compressImage(file, function(b64) {
+    if (!b64) { cb(null); return; }
+    var adapter = (typeof window !== 'undefined' && window.RoseSyncAdapter);
+    if (adapter && typeof adapter.uploadImage === 'function') {
+      var blob = dataURLtoBlob(b64);
+      if (!blob) { cb(b64); return; }
+      var fname = 'tech_' + Date.now() + '_' + Math.floor(Math.random() * 1e9) + '.jpg';
+      adapter.uploadImage(fname, blob, function(url) { cb(url || b64); });
+    } else {
+      cb(b64); // 本地模式
+    }
+  });
+}
+
 function onPhotos(input) {
   if (!input || !input.files || !input.files.length) return;
   var remaining = MAX_PHOTOS - photos.length;
   if (remaining <= 0) { toast('最多上传 ' + MAX_PHOTOS + ' 张'); return; }
   var files = Array.prototype.slice.call(input.files);
   var toProcess = Math.min(files.length, remaining);
-  var done = 0;
+  var uploading = (typeof window !== 'undefined' && window.RoseSyncAdapter && typeof window.RoseSyncAdapter.uploadImage === 'function');
+  if (uploading) toast('正在上传图片到云端…');
   for (var k = 0; k < toProcess; k++) {
+    pendingUploads++;
     (function(file) {
-      compressImage(file, function(b64) {
-        if (b64) photos.push(b64);
-        done++;
-        if (done >= toProcess) renderPhotos();
+      storePhoto(file, function(photoVal) {
+        pendingUploads--;
+        if (photoVal) photos.push(photoVal);
+        renderPhotos();
       });
     })(files[k]);
   }
@@ -395,6 +426,7 @@ function renderStatus() {
 
 function submitOrUpdate() {
   if (!user) { location.href='login.html?v=20260817'; return; }
+  if (pendingUploads > 0) { toast('图片还在上传中，请稍候…'); return; }
   var name = document.getElementById('name').value.trim();
   var phone = document.getElementById('phone').value.trim();
   var address = document.getElementById('address').value.trim();
