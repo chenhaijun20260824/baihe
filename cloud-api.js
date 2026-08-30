@@ -15,23 +15,25 @@
   'use strict';
   var LS_KEY = '百合_cloud_cfg';
 
+  // 仓库/分支/路径固定不变，每台设备只需填 Token
+  var DEFAULTS = { owner: 'chenhaijun20260824', repo: 'baihe-data', branch: 'main', path: 'data' };
   function norm(c) {
+    c = c || {};
     return {
       token: c.token,
-      owner: c.owner,
-      repo: c.repo,
-      branch: c.branch || 'main',
-      path: (c.path || 'data').replace(/\/+$/, '').replace(/^\/+/, '')
+      owner: c.owner || DEFAULTS.owner,
+      repo: c.repo || DEFAULTS.repo,
+      branch: c.branch || DEFAULTS.branch,
+      path: (c.path || DEFAULTS.path).replace(/\/+$/, '').replace(/^\/+/, '')
     };
   }
   function loadCfg() {
     try {
       var raw = localStorage.getItem(LS_KEY);
-      if (raw) { var c = JSON.parse(raw); if (c && c.token && c.owner && c.repo) return norm(c); }
+      if (raw) { var c = JSON.parse(raw); if (c && c.token) return norm(c); }
     } catch (e) {}
     try {
-      if (window.BAIHE_CLOUD && window.BAIHE_CLOUD.token && window.BAIHE_CLOUD.owner && window.BAIHE_CLOUD.repo)
-        return norm(window.BAIHE_CLOUD);
+      if (window.BAIHE_CLOUD && window.BAIHE_CLOUD.token) return norm(window.BAIHE_CLOUD);
     } catch (e) {}
     return null;
   }
