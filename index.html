@@ -218,7 +218,7 @@ window.imgErr = function(img) {
     <a class="top-btn" href="login.html?v=20260817">👤 登录</a>
     <a class="top-btn" href="register_v2.html?v=20260824">📝 注册</a>
     <a class="top-btn" href="profile.html?v=20260817">💆 我的</a>
-    <a class="top-btn" href="cloud-setup.html">☁️ 云端</a>
+    <a class="top-btn" href="javascript:void(0)" onclick="openCloudModal()">☁️ 云端</a>
     </div>
 
   <div class="search-bar">
@@ -387,6 +387,59 @@ function init() {
   });
 }
 
+function openCloudModal() {
+  var modal = document.getElementById('cloudModal');
+  var body = document.getElementById('cloudModalBody');
+  var cfg = null;
+  try { cfg = JSON.parse(localStorage.getItem('百合_cloud_cfg') || 'null'); } catch (e) {}
+  if (cfg && cfg.token) {
+    body.innerHTML =
+      '<h3 style="color:#C2185B;margin-bottom:10px;font-size:18px;">✅ 云端已连接</h3>' +
+      '<p style="color:#666;font-size:13px;margin-bottom:14px;">仓库：<b>' + (cfg.owner || 'chenhaijun20260824') + '/' + (cfg.repo || 'baihe-data') + '</b></p>' +
+      '<button class="btn" onclick="copyConnectCode()">📋 复制连接码（给其它设备）</button>' +
+      '<button class="btn ghost" onclick="disconnectCloud()">断开云端</button>' +
+      '<button class="btn ghost" onclick="closeCloudModal()">关闭</button>';
+  } else {
+    body.innerHTML =
+      '<h3 style="color:#C2185B;margin-bottom:8px;font-size:18px;">☁️ 连接云端</h3>' +
+      '<p style="color:#666;font-size:13px;line-height:1.6;margin-bottom:14px;">粘贴「连接码」（GitHub Token）即可连接，无需其它设置。其它设备复制此连接码后粘贴即可同步。</p>' +
+      '<input id="cloudTokenInput" placeholder="ghp_..." autocomplete="off" style="width:100%;padding:11px 14px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">' +
+      '<button class="btn" onclick="doConnectFromModal()">连接云端</button>' +
+      '<button class="btn ghost" onclick="location.href=\'cloud-setup.html\'">高级配置</button>';
+    setTimeout(function(){ var i=document.getElementById('cloudTokenInput'); if(i) i.focus(); }, 50);
+  }
+  modal.style.display = 'flex';
+}
+function closeCloudModal() { var m=document.getElementById('cloudModal'); if(m) m.style.display='none'; }
+function doConnectFromModal() {
+  var i = document.getElementById('cloudTokenInput');
+  var t = i ? i.value.trim() : '';
+  if (!t) { toast('请输入连接码'); return; }
+  localStorage.setItem('百合_cloud_cfg', JSON.stringify({ token: t }));
+  closeCloudModal();
+  toast('已连接，正在同步…');
+  setTimeout(function(){ location.reload(); }, 700);
+}
+function copyConnectCode() {
+  var cfg = null;
+  try { cfg = JSON.parse(localStorage.getItem('百合_cloud_cfg') || '{}'); } catch (e) {}
+  if (!cfg || !cfg.token) { toast('未找到连接码'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cfg.token).then(function(){ toast('连接码已复制 ✓'); }, function(){ toast('复制失败，请手动复制'); });
+  } else {
+    var ta = document.createElement('textarea'); ta.value = cfg.token; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('连接码已复制 ✓'); } catch(e){ toast('复制失败，请手动复制'); }
+    document.body.removeChild(ta);
+  }
+}
+function disconnectCloud() {
+  localStorage.removeItem('百合_cloud_cfg');
+  localStorage.removeItem('百合_server_online');
+  closeCloudModal();
+  toast('已断开云端');
+  setTimeout(function(){ location.reload(); }, 700);
+}
+
 init();
 </script>
 
@@ -401,6 +454,18 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 <div style="text-align:center;font-size:11px;color:#999;padding:12px 0 20px;">v2.2 · 限速修复版 · 2026-08-15</div>
+
+  <!-- 云端连接弹窗（极简：只填 Token） -->
+  <div id="cloudModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeCloudModal()">
+    <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.2);">
+      <div id="cloudModalBody"></div>
+    </div>
+  </div>
+  <style>
+    #cloudModal .btn{width:100%;padding:13px;background:linear-gradient(135deg,#C2185B,#E91E63);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;margin-bottom:10px;}
+    #cloudModal .btn:active{transform:scale(.98);}
+    #cloudModal .btn.ghost{background:#fff;color:#C2185B;border:1.5px solid #C2185B;}
+  </style>
 <script src="cloud-config.js"></script>
 <script src="cloud-api.js"></script>
 </body>
