@@ -1,7 +1,7 @@
-// 百合上门 - Service Worker (PWA 离线支持) v6
+// 百合上门 - Service Worker (PWA 离线支持) v7
 // 缓存路径基于 Service Worker 实际部署位置，兼容任意仓库名/子路径
 const BASE = (self.location.pathname.endsWith('/') ? self.location.pathname : self.location.pathname.replace(/[^/]*$/, ''));
-const CACHE_NAME = 'baihe-v6';
+const CACHE_NAME = 'baihe-v7';
 const urlsToCache = [
   BASE,
   BASE + 'index.html',
