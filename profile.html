@@ -1050,6 +1050,12 @@ function initDynamicRows() {
   }, 0);
 }
 
+function initCheckboxRows() {
+  // 技能 checkbox 行初始化（当前表单改用 select 与输入框，无 checkbox 行；保留为空函数占位）
+  // 如需恢复 checkbox 行渲染，在此处为对应角色（如 villager）动态插入 DOM 即可。
+}
+
+
 function toggleCheck(item, group, val) {
   var cb = item.querySelector('input');
   if (!cb) return;
