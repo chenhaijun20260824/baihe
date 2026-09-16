@@ -406,6 +406,11 @@ function getRoleName(role) {
 }
 
 function renderCard(item, isNew) {
+  // 防御：过滤无效数据
+  if (!item || typeof item !== 'object') return '';
+  var _name = getItemTitle(item);
+  if (!_name || _name.indexOf('<<') >= 0 || _name.indexOf('vid') >= 0 || _name.length < 2 || _name === '未知') return '';
+  
   var key = getItemKey(item);
   if (!key) return '';
   var now = Date.now();
