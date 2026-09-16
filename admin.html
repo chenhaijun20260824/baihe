@@ -5,13 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
 /*
- * rose-sync.js — 本地优先同步核心库（取代 jsonbin.js）
- * 架构：本地优先（localStorage 永远可用），可选接入轻量后端做多端同步。
- * 默认不接任何云端：零额度、零网络依赖、不会弹"密钥失败"红条。
- * 多端同步：给 window.RoseSyncAdapter 赋值适配器即可（见 local-api.js 示例）。
+ * rose-sync.js — 本地优先同步核心库
  */
 var JB = {
-  BINS: { accounts: 'accounts', technicians: 'technicians', notices: 'notices', audit_log: 'audit_log' },
+  BINS: {
+    accounts: 'accounts',
+    technicians: 'technicians',
+    notices: 'notices',
+    audit_log: 'audit_log',
+    village_heads: 'village_heads',
+    villagers: 'villagers',
+    supermarkets: 'supermarkets',
+    markets: 'markets',
+    factories: 'factories',
+    customer_service: 'customer_service',
+    sales_managers: 'sales_managers',
+    village_agents: 'village_agents',
+    town_agents: 'town_agents',
+    county_agents: 'county_agents'
+  },
   _adapterNow: function () {
     try { return (typeof window !== 'undefined' && window.RoseSyncAdapter) ? window.RoseSyncAdapter : null; }
     catch (e) { return null; }
@@ -138,11 +150,7 @@ var JB = {
     try { localStorage.setItem(this._deletedKey(binKey), JSON.stringify(d)); } catch (e) {}
   }
 };
-
-// 页面加载后如有适配器则静默同步；纯本地模式下直接 no-op（不联网、不弹窗）
 setTimeout(function () { try { JB.syncAll(); } catch (e) {} }, 800);
-
-// 全局错误捕获（保留，便于排查）
 window.onerror = function (m, s, l, c) {
   try {
     var d = document.createElement("div");
@@ -152,15 +160,10 @@ window.onerror = function (m, s, l, c) {
   } catch (e) {}
   return false;
 };
-
-/*
- * 可选多端同步：在引入本文件之后、页面逻辑之前设置 window.RoseSyncAdapter 即可，
- * 例如 local-api.js。本地永远优先，后端不可用也不影响本机数据。
- */
-</script>
+  </script>
 
 
-<title>管理员后台 - 百合上门</title>
+<title>管理员后台 - 百合网络</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; }
@@ -201,10 +204,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC'
 .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.8); color: #fff; padding: 12px 28px; border-radius: 10px; font-size: 14px; z-index: 99999; }
 .cloud-badge { display: inline-block; background: #4CAF50; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-left: 8px; vertical-align: middle; }
 .cloud-badge.offline { background: #FF9800; }
+
+.role-tab-bar { display: flex; gap: 6px; padding: 8px 16px; overflow-x: auto; background: #fafafa; border-bottom: 2px solid #e0e0e0; white-space: nowrap; }
+.role-tab { padding: 8px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; background: #fff; border: 1.5px solid #eee; color: #666; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.role-tab.active { background: #C2185B; color: #fff; border-color: #C2185B; }
+.role-tab:active { opacity: .85; }
+.role-tab .count { background: rgba(0,0,0,.1); border-radius: 20px; padding: 0 6px; font-size: 11px; }
+.role-tab:not(.active) .count { background: #fce4ec; color: #C2185B; }
+
+.role-emoji { font-size: 18px; }
 </style>
 
   <!-- PWA 配置 -->
-  <link rel="manifest" href="manifest-admin.json?v=20260824">
+  <link rel="manifest" href="manifest-admin.json?v=20260916">
   <meta name="theme-color" content="#C2185B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -220,7 +232,7 @@ window.imgErr = function(img) {
 </head>
 <body>
 <div class="header">🌹 管理员后台 <span id="cloudBadge" class="cloud-badge" style="display:none;"></span></div>
-<div style="text-align:center;font-size:11px;color:#999;margin:4px 0 10px;">v2.2 · 限速修复版 · 2026-08-15</div>
+<div style="text-align:center;font-size:11px;color:#999;margin:4px 0 10px;">v2.3 · 多角色版 · 2026-09-16</div>
   <div id="adminCloudBar" style="text-align:center;margin:6px 0;">
     <button class="btn btn-sm" onclick="toggleAdminCloudInput()" id="adminCloudBtn">☁️ 连接云端</button>
     <span id="adminCloudStatus" style="font-size:12px;color:#2E7D32;margin-left:6px;"></span>
@@ -239,20 +251,25 @@ window.imgErr = function(img) {
 <div style="text-align:center;font-size:15px;margin-bottom:16px;color:#666;">请输入管理员密码</div>
 <input type="password" id="adminPwd" placeholder="管理员密码" onkeydown="if(event.key==='Enter')adminLogin()">
 <button class="btn" onclick="adminLogin()">进入后台</button>
-<div class="back-link" style="margin-top:14px;"><a href="index.html?v=20260817">← 返回首页</a></div>
+<div class="back-link" style="margin-top:14px;"><a href="index.html?v=20260916">← 返回首页</a></div>
 </div>
 </div>
 <div id="adminView" style="display:none;">
-  
+
 <div class="toolbar">
 <button class="btn btn-sm btn-ghost" onclick="loadAll()">🔄 刷新</button>
 </div>
-<div class="tabs" style="display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:16px;background:#fafafa;">
+
+<!-- 主Tab -->
+<div style="display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:16px;background:#fafafa;">
   <div id="tabReview" class="tab active" onclick="switchAdminTab('review')" style="padding:12px 20px;cursor:pointer;font-weight:600;border-bottom:3px solid transparent;margin-bottom:-2px;color:#666;">待审核 <span id="pendingCount" style="color:#c2185b;font-size:12px;"></span></div>
   <div id="tabHistory" class="tab" onclick="switchAdminTab('history')" style="padding:12px 20px;cursor:pointer;font-weight:600;border-bottom:3px solid transparent;margin-bottom:-2px;color:#666;">审核记录 <span id="historyCount" style="color:#888;font-size:12px;"></span></div>
-  <div id="tabAll" class="tab" onclick="switchAdminTab('all')" style="padding:12px 20px;cursor:pointer;font-weight:600;border-bottom:3px solid transparent;margin-bottom:-2px;color:#666;">全部技师 <span id="allCount" style="color:#888;font-size:12px;"></span></div>
+  <div id="tabAll" class="tab" onclick="switchAdminTab('all')" style="padding:12px 20px;cursor:pointer;font-weight:600;border-bottom:3px solid transparent;margin-bottom:-2px;color:#666;">全部记录 <span id="allCount" style="color:#888;font-size:12px;"></span></div>
   <div id="tabNotice" class="tab" onclick="switchAdminTab('notice')" style="padding:12px 20px;cursor:pointer;font-weight:600;border-bottom:3px solid transparent;margin-bottom:-2px;color:#666;">公告 <span id="noticeCount" style="color:#888;font-size:12px;"></span></div>
 </div>
+
+<!-- 角色过滤（审核Tab下） -->
+<div id="roleTabBar" class="role-tab-bar" style="display:none;"></div>
 
 <div id="reviewPanel"><div id="pendingList"><div class="loading">加载中...</div></div></div>
 <div id="historyPanel" style="display:none;"><div id="historyList"><div class="loading">加载中...</div></div></div>
@@ -280,17 +297,36 @@ window.imgErr = function(img) {
 <div id="noticeList"><div class="loading">加载中...</div></div>
 </div>
 <div class="back-link" style="margin-top:20px;">
-<a href="index.html?v=20260817">← 返回首页</a> &nbsp;|&nbsp; <a href="javascript:adminLogout()">退出后台</a>
+<a href="index.html?v=20260916">← 返回首页</a> &nbsp;|&nbsp; <a href="javascript:adminLogout()">退出后台</a>
 </div>
 </div>
 </div>
 
 <script>
 var ADMIN_PWD = 'admin123';
-var TECH_KEY = 'technicians';
 var LOG_KEY = 'audit_log';
 var NOTICE_KEY = 'notices';
 var cloudOk = false;
+
+var ROLE_CONFIG = {
+  technician: { name: '技师', icon: '💆', bin: 'technicians' },
+  village_head: { name: '村长', icon: '🏘️', bin: 'village_heads' },
+  villager: { name: '村民', icon: '🧑‍🌾', bin: 'villagers' },
+  supermarket: { name: '超市', icon: '🏪', bin: 'supermarkets' },
+  market: { name: '农贸市场', icon: '🥬', bin: 'markets' },
+  factory: { name: '企业工厂', icon: '🏭', bin: 'factories' },
+  customer_service: { name: '客服', icon: '🎧', bin: 'customer_service' },
+  sales_manager: { name: '销售经理', icon: '📊', bin: 'sales_managers' },
+  village_agent: { name: '村级代理', icon: '📍', bin: 'village_agents' },
+  town_agent: { name: '镇级代理', icon: '📌', bin: 'town_agents' },
+  county_agent: { name: '县级代理', icon: '🗺️', bin: 'county_agents' }
+};
+
+var ALL_ROLE_KEYS = Object.keys(ROLE_CONFIG);
+var currentAdminTab = 'review';
+var currentRoleFilter = 'all';
+var allLoadedData = {}; // binKey -> []
+var allPendingItems = [];
 
 function toast(msg) {
   var el = document.createElement('div');
@@ -304,25 +340,27 @@ function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
-function switchAdminTab(name) {
-  try {
-    var panels = { review:'reviewPanel', history:'historyPanel', all:'allPanel', notice:'noticePanel' };
-    var tabs = { review:'tabReview', history:'tabHistory', all:'tabAll', notice:'tabNotice' };
-    Object.keys(panels).forEach(function(k){
-      var p = document.getElementById(panels[k]);
-      if (p) p.style.display = (k === name) ? 'block' : 'none';
-      var t = document.getElementById(tabs[k]);
-      if (t) {
-        if (k === name) { t.classList.add('active'); t.style.color = '#c2185b'; t.style.borderBottomColor = '#c2185b'; }
-        else { t.classList.remove('active'); t.style.color = '#666'; t.style.borderBottomColor = 'transparent'; }
-      }
-    });
-    if (name === 'all' && typeof loadAllTechs === 'function') loadAllTechs();
-    if (name === 'history' && typeof loadHistory === 'function') loadHistory();
-    if (name === 'notice' && typeof loadNotices === 'function') loadNotices();
-  } catch (e) { console.log('switchAdminTab err', e); }
-}
 
+function switchAdminTab(name) {
+  currentAdminTab = name;
+  var panels = { review:'reviewPanel', history:'historyPanel', all:'allPanel', notice:'noticePanel' };
+  var tabs = { review:'tabReview', history:'tabHistory', all:'tabAll', notice:'tabNotice' };
+  Object.keys(panels).forEach(function(k){
+    var p = document.getElementById(panels[k]);
+    if (p) p.style.display = (k === name) ? 'block' : 'none';
+    var t = document.getElementById(tabs[k]);
+    if (t) {
+      if (k === name) { t.classList.add('active'); t.style.color = '#c2185b'; t.style.borderBottomColor = '#c2185b'; }
+      else { t.classList.remove('active'); t.style.color = '#666'; t.style.borderBottomColor = 'transparent'; }
+    }
+  });
+  var roleBar = document.getElementById('roleTabBar');
+  if (roleBar) roleBar.style.display = (name === 'review' || name === 'all') ? 'flex' : 'none';
+  if (name === 'all') renderAllPanel();
+  else if (name === 'history') renderHistoryPanel();
+  else if (name === 'notice') loadNotices();
+  else renderReviewPanel();
+}
 
 function formatTime(ts) {
   if (!ts) return '';
@@ -333,21 +371,10 @@ function formatTime(ts) {
 function setCloudBadge(ok, text) {
   try {
     var badge = document.getElementById('cloudBadge');
-    if (badge) {
-      badge.style.display = 'inline-block';
-      badge.className = ok ? 'cloud-badge' : 'cloud-badge offline';
-      badge.textContent = text || (ok ? '云端已连接' : '本地模式');
-    }
-    var infoBar = document.getElementById('infoBar');
-    if (infoBar) {
-      infoBar.innerHTML = ok ? '☁️ 云端已连接 | 数据多设备同步' : '⚠️ 云端连接失败，使用本地数据（请检查网络）';
-    }
+    if (badge) { badge.style.display = 'inline-block'; badge.className = ok ? 'cloud-badge' : 'cloud-badge offline'; badge.textContent = text || (ok ? '云端已连接' : '本地模式'); }
     var s2 = document.getElementById('adminCloudStatus');
-    if (s2) {
-      s2.textContent = ok ? '已连接' : '本地模式';
-      s2.style.color = ok ? '#2E7D32' : '#FF9800';
-    }
-  } catch (e) { console.warn('[setCloudBadge]', e); }
+    if (s2) { s2.textContent = ok ? '已连接' : '本地模式'; s2.style.color = ok ? '#2E7D32' : '#FF9800'; }
+  } catch (e) {}
 }
 
 function adminLogin() {
@@ -356,6 +383,7 @@ function adminLogin() {
     try { localStorage.setItem('rose_admin_logged', '1'); } catch(e) {}
     document.getElementById('loginView').style.display = 'none';
     document.getElementById('adminView').style.display = 'block';
+    renderRoleTabBar();
     loadAll();
   } else {
     toast('密码错误');
@@ -369,228 +397,309 @@ function adminLogout() {
   }
 }
 
+function renderRoleTabBar() {
+  var bar = document.getElementById('roleTabBar');
+  var allItems = [];
+  ALL_ROLE_KEYS.forEach(function(k) {
+    var items = allLoadedData[ROLE_CONFIG[k].bin] || [];
+    items.forEach(function(item) { item._bin = ROLE_CONFIG[k].bin; item._role = k; });
+    allItems = allItems.concat(items);
+  });
+  var pending = allItems.filter(function(t) { return t.status === '待审核'; });
+  var html = '<div class="role-tab' + (currentRoleFilter === 'all' ? ' active' : '') + '" onclick="filterRoleTab(\'all\')">全部 <span class="count">' + pending.length + '</span></div>';
+  ALL_ROLE_KEYS.forEach(function(key) {
+    var cfg = ROLE_CONFIG[key];
+    var count = pending.filter(function(t) { return t._role === key; }).length;
+    if (count === 0) return;
+    html += '<div class="role-tab' + (currentRoleFilter === key ? ' active' : '') + '" onclick="filterRoleTab(\'' + key + '\')"><span class="role-emoji">' + cfg.icon + '</span> ' + cfg.name + ' <span class="count">' + count + '</span></div>';
+  });
+  bar.innerHTML = html;
+}
+
+function filterRoleTab(role) {
+  currentRoleFilter = role;
+  renderRoleTabBar();
+  if (currentAdminTab === 'review') renderReviewPanel();
+  else if (currentAdminTab === 'all') renderAllPanel();
+}
+
 function loadAll() {
   document.getElementById('pendingList').innerHTML = '<div class="loading">加载中...</div>';
   document.getElementById('historyList').innerHTML = '<div class="loading">加载中...</div>';
   document.getElementById('allList').innerHTML = '<div class="loading">加载中...</div>';
   document.getElementById('noticeList').innerHTML = '<div class="loading">加载中...</div>';
 
-  var count = 0;
-  var total = 3;
-  var techs = [], logs = [], notes = [];
+  allLoadedData = {};
+  allPendingItems = [];
+  var loaded = 0;
+  var total = ALL_ROLE_KEYS.length + 2; // 所有角色 + accounts + notices
 
-  // 本地优先：先用本地数据立即渲染（不等待云端），云端合并完成后自动重渲染
-  try {
-    var lt = JB._getLocal(TECH_KEY) || [];
-    var ll = JB._getLocal(LOG_KEY) || [];
-    var ln = JB._getLocal(NOTICE_KEY) || [];
-    renderPending(lt); renderAll(lt); renderHistory(ll); renderNotices(ln); updateCounts(lt, ll);
-  } catch (e) { console.warn('[loadAll] 本地渲染失败', e); }
-
-  function check() {
-    if (++count === total) {
-      renderPending(techs); renderAll(techs); renderHistory(logs); renderNotices(notes); updateCounts(techs, logs);
+  function checkAll() {
+    if (++loaded === total) {
+      renderRoleTabBar();
+      updateCounts();
+      if (currentAdminTab === 'review') renderReviewPanel();
+      else if (currentAdminTab === 'history') renderHistoryPanel();
+      else if (currentAdminTab === 'all') renderAllPanel();
+      else if (currentAdminTab === 'notice') loadNotices();
     }
   }
 
-  JB.get(TECH_KEY, function(data) { techs = Array.isArray(data) ? data : []; check(); });
-  JB.get(LOG_KEY, function(data) { logs = Array.isArray(data) ? data : []; check(); });
-  JB.get(NOTICE_KEY, function(data) { notes = Array.isArray(data) ? data : []; check(); });
-}
-
-function updateCounts(techs, logs) {
-  try {
-    var pending = (techs || []).filter(function(t) { return t.status === '待审核'; });
-    var allTechs = (techs || []).filter(function(t) { return t.status === '已通过'; });
-    var pc = document.getElementById('pendingCount');
-    var hc = document.getElementById('historyCount');
-    var ac = document.getElementById('allCount');
-    if (pc) pc.textContent = pending.length ? '(' + pending.length + ')' : '';
-    if (hc) hc.textContent = (logs || []).length ? '(' + (logs || []).length + ')' : '';
-    if (ac) ac.textContent = allTechs.length ? '(' + allTechs.length + ')' : '';
-  } catch (e) { console.warn('[updateCounts]', e); }
-}
-
-function renderCard(t, showButtons, showDelete, showTop) {
-  var imgs = (t.photos || []).map(function(p) { return '<img src="' + p + '" onerror="imgErr(this)">'; }).join('');
-  var statusColor = t.status === '已通过' ? '#2E7D32' : t.status === '已拒绝' ? '#F44336' : '#FF9800';
-  var btns = '';
-  if (showButtons) {
-    btns = '<div class="row-btns"><button class="btn btn-pass btn-sm" onclick="approve(\'' + t.id + '\')">✅ 通过</button><button class="btn btn-reject btn-sm" onclick="reject(\'' + t.id + '\')">❌ 拒绝</button></div>';
-  }
-  if (showDelete) {
-    btns += '<div class="row-btns" style="margin-top:6px;"><button class="btn btn-sm" style="background:#9E9E9E;color:#fff;" onclick="delTech(\'' + t.id + '\')">🗑 删除该技师</button></div>';
-  if (showTop) {
-    var topBtn = t.top
-      ? '<button class="btn btn-sm" style="background:#FF9800;color:#fff;" onclick="topTech(\'' + t.id + '\')">取消置顶</button>'
-      : '<button class="btn btn-sm" style="background:#FF9800;color:#fff;" onclick="topTech(\'' + t.id + '\')">置顶</button>';
-    btns += '<div class="row-btns" style="margin-top:6px;">' + topBtn + '</div>';
-  }
-  }
-  return '<div class="card"><div class="tech-imgs">' + (imgs || '<div style="color:#bbb;font-size:12px;padding:8px;">无照片</div>') + '</div><div class="tech-field"><b>姓名：</b>' + escapeHtml(t.name) + ' <span style="color:' + statusColor + ';font-size:12px;">[' + escapeHtml(t.status || '待审核') + ']</span></div><div class="tech-field"><b>电话：</b>' + escapeHtml(t.phone) + '</div><div class="tech-field"><b>地址：</b>' + escapeHtml(t.address) + '</div><div class="tech-field"><b>价格：</b>¥' + escapeHtml(t.price) + ' / 次</div><div class="tech-field"><b>项目：</b>' + escapeHtml(Array.isArray(t.services) ? t.services.filter(Boolean).join('、') : (t.services || '')) + '</div><div class="tech-field" style="color:#888;"><b>账号：</b>' + escapeHtml(t.account || '') + '</div><div class="tech-field" style="color:#888;"><b>提交：</b>' + formatTime(t.submitTime) + '</div>' + btns + '</div>';
-}
-
-function renderPending(list) {
-  var pending = list.filter(function(t) { return t.status === '待审核'; });
-  var box = document.getElementById('pendingList');
-  if (pending.length === 0) { box.innerHTML = '<div class="empty">⭐ 暂无待审核申请</div>'; return; }
-  box.innerHTML = pending.map(function(t) { return renderCard(t, true, false); }).join('');
-}
-
-function renderAll(list) {
-  var box = document.getElementById('allList');
-  if (list.length === 0) { box.innerHTML = '<div class="empty">暂无技师数据</div>'; return; }
-  box.innerHTML = list.map(function(t) { return renderCard(t, false, true, true); }).join('');
-}
-
-function doAudit(id, action) {
-  // 以本地最新数据为权威源，避免云端 pull 竞态把刚改的状态覆盖回去
-  var list = JB._getLocal(TECH_KEY) || [];
-  var tech = null;
-  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { tech = list[i]; break; } }
-  if (!tech) {
-    // 本地没有就拉一次云端再处理
-    JB.get(TECH_KEY, function(cloudList) { doAuditApply(cloudList || [], id, action); });
-    return;
-  }
-  doAuditApply(list, id, action);
-}
-
-function doAuditApply(list, id, action) {
-  var tech = null;
-  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { tech = list[i]; break; } }
-  if (!tech) { toast('未找到该记录'); return; }
-  tech.status = action === 'approve' ? '已通过' : '已拒绝';
-  tech.auditTime = Date.now();
-  tech.updateTime = Date.now();
-  for (var j = 0; j < list.length; j++) { if (list[j].id === id) { list[j] = tech; break; } }
-  JB._setLocal(TECH_KEY, list);
-  // 立即重渲染：待审核项立刻消失，全部技师立刻显示新状态
-  try { renderPending(list); renderAll(list); updateCounts(list, JB._getLocal(LOG_KEY) || []); } catch (e) {}
-  var okMsg = action === 'approve' ? '已通过 ✓' : '已拒绝 ✗';
-  toast(okMsg);
-  // 推云端（指数退避重试，最多3次）
-  var _delays = [1500, 4000, 9000], _attempt = 0;
-  (function _tryPush() {
-    JB.put(TECH_KEY, list, function(ok) {
-      if (ok) { setCloudBadge(true, '云端已连接'); return; }
-      if (_attempt < _delays.length) { var w = _delays[_attempt]; _attempt++; setCloudBadge(false, '重试同步中...'); setTimeout(_tryPush, w); }
-      else { setCloudBadge(false, '本地模式'); toast('云端同步失败，数据已存本地'); }
-    });
-  })();
-  // 写审核日志
-  var logs = JB._getLocal(LOG_KEY) || [];
-  logs.unshift({ id: tech.id, name: tech.name, phone: tech.phone, account: tech.account || '', action: action === 'approve' ? '通过' : '拒绝', time: Date.now() });
-  if (logs.length > 500) logs = logs.slice(0, 500);
-  JB._setLocal(LOG_KEY, logs);
-  JB.put(LOG_KEY, logs, function() { if (typeof loadHistory === 'function') loadHistory(); });
-}
-
-function approve(id) { doAudit(id, 'approve'); }
-function republishNotice(id) {
-  var list = JB._getLocal(NOTICE_KEY);
-  if (!Array.isArray(list)) list = [];
-  var n = null, ni = -1;
-  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { n = list[i]; ni = i; break; } }
-  if (!n) { toast('未找到该公告'); return; }
-  n.time = Date.now();        // 刷新时间，首页自动置顶显示
-  list.splice(ni, 1);
-  list.unshift(n);            // 移到最前
-  JB._setLocal(NOTICE_KEY, list);
-  renderNotices(list);
-  // 强力重试：3s/6s/12s 指数退避，最多3次
-  var _nDelays = [3000, 6000, 12000];
-  var _nAttempt = 0;
-  function _nTryPush() {
-    JB.put(NOTICE_KEY, list, function(putOk) {
-      if (putOk) { setCloudBadge(true, '云端已连接'); toast('已重新发布'); }
-      else if (_nAttempt < _nDelays.length) { var _w = _nDelays[_nAttempt]; _nAttempt++; setCloudBadge(false, '重试同步中...'); setTimeout(_nTryPush, _w); }
-      else { setCloudBadge(false, '本地模式'); toast('已保存，联网后自动同步'); }
-    });
-  }
-  _nTryPush();
-}
-
-function topTech(id) {
-  JB.get(TECH_KEY, function(list) {
-    if (!Array.isArray(list)) list = [];
-    var tech = null, ti = -1;
-    for (var i = 0; i < list.length; i++) { if (list[i].id === id) { tech = list[i]; ti = i; break; } }
-    if (!tech) { toast('未找到该技师'); return; }
-    if (tech.top) { delete tech.top; toast('已取消置顶'); }
-    else { tech.top = Date.now(); toast('已置顶，首页排第一'); }
-    list[ti] = tech;
-    JB._setLocal(TECH_KEY, list);
-    renderAll(list);
-    // 强力重试：3s/6s/12s 指数退避，最多3次
-    var _d = [3000, 6000, 12000];
-    var _a = 0;
-    function _try() {
-      JB.put(TECH_KEY, list, function(ok) {
-        if (ok) { setCloudBadge(true, '云端已连接'); }
-        else if (_a < _d.length) { var w = _d[_a]; _a++; setCloudBadge(false, '重试同步中...'); setTimeout(_try, w); }
-        else { setCloudBadge(false, '本地模式'); }
+  ALL_ROLE_KEYS.forEach(function(key) {
+    var binKey = ROLE_CONFIG[key].bin;
+    JB.get(binKey, function(data) {
+      allLoadedData[binKey] = Array.isArray(data) ? data : [];
+      (Array.isArray(data) ? data : []).forEach(function(item) {
+        item._bin = binKey;
+        item._role = key;
+        if (item.status === '待审核') allPendingItems.push(item);
       });
-    }
-    _try();
+      checkAll();
+    });
+  });
+
+  JB.get(LOG_KEY, function(data) {
+    allLoadedData[LOG_KEY] = Array.isArray(data) ? data : [];
+    checkAll();
+  });
+  JB.get(NOTICE_KEY, function(data) {
+    allLoadedData[NOTICE_KEY] = Array.isArray(data) ? data : [];
+    checkAll();
   });
 }
 
-function reject(id) { doAudit(id, 'reject'); }
-
-// 删除技师（管理员操作）
-function delTech(id) {
-  if (!confirm('确定删除该技师？删除后首页不再展示，该技师个人中心也会清空！')) return;
-  JB.markDeleted(TECH_KEY, id); // 先标记删除，即使云端PUT失败也不会再出现
-  var list = JB._getLocal(TECH_KEY);
-  var removed = null;
-  for (var i = 0; i < list.length; i++) {
-    if (list[i].id === id) { removed = list[i]; break; }
-  }
-  list = list.filter(function(t) { return t.id !== id; });
-  JB._setLocal(TECH_KEY, list);
-  toast('已删除 ✓');
-  loadAll();
-  var cur = JB.getCurrentUser();
-  if (cur && removed && removed.accountId === cur.id) {
-    try { localStorage.removeItem('rose_technicians'); } catch(e) {}
-  }
-  var _delDelays = [3000, 6000, 12000];
-  var _delAttempt = 0;
-  function _tryPush() {
-    JB.put(TECH_KEY, list, function(ok) {
-      if (ok) { setCloudBadge(true, '云端已连接'); return; }
-      if (_delAttempt < _delDelays.length) {
-        var _w = _delDelays[_delAttempt]; _delAttempt++;
-        setCloudBadge(false, '重试同步中...');
-        setTimeout(_tryPush, _w);
-      } else {
-        setCloudBadge(false, '本地模式');
-        toast('云端同步失败，已存本地');
-      }
-    });
-  }
-  _tryPush();
+function updateCounts() {
+  try {
+    var pending = allPendingItems;
+    var pc = document.getElementById('pendingCount');
+    var hc = document.getElementById('historyCount');
+    var ac = document.getElementById('allCount');
+    var nc = document.getElementById('noticeCount');
+    if (pc) pc.textContent = pending.length ? '(' + pending.length + ')' : '';
+    if (hc) hc.textContent = (allLoadedData[LOG_KEY] || []).length ? '(' + allLoadedData[LOG_KEY].length + ')' : '';
+    var allItems = [];
+    ALL_ROLE_KEYS.forEach(function(k) { allItems = allItems.concat(allLoadedData[ROLE_CONFIG[k].bin] || []); });
+    var nonDeleted = allItems.filter(function(t) { return t.status !== '已撤销'; });
+    if (ac) ac.textContent = nonDeleted.length ? '(' + nonDeleted.length + ')' : '';
+    if (nc) nc.textContent = (allLoadedData[NOTICE_KEY] || []).length ? '(' + allLoadedData[NOTICE_KEY].length + ')' : '';
+  } catch (e) {}
 }
 
-function renderHistory(logs) {
+function getItemTitle(item) {
+  var r = item._role || 'technician';
+  if (r === 'technician') return item.name || '技师';
+  if (r === 'village_head') return (item.name || '村长') + '（村长）';
+  if (r === 'villager') return item.name || '村民';
+  if (r === 'supermarket') return item.marketName || item.name || '超市';
+  if (r === 'market') return item.marketName || item.name || '农贸市场';
+  if (r === 'factory') return item.factoryName || item.name || '企业工厂';
+  if (r === 'customer_service') return (item.name || '客服') + '（客服）';
+  if (r === 'sales_manager') return (item.name || '销售经理') + '（销售经理）';
+  if (r === 'village_agent') return item.agentName || item.name || '村级代理';
+  if (r === 'town_agent') return item.agentName || item.name || '镇级代理';
+  if (r === 'county_agent') return item.agentName || item.name || '县级代理';
+  return item.name || r;
+}
+
+function getItemSub(item) {
+  var parts = [];
+  if (item.province || item.city || item.county) parts.push([item.province, item.city, item.county].filter(Boolean).join(''));
+  if (item.village) parts.push(item.village + '村');
+  if (item.town) parts.push(item.town + '镇');
+  if (item.address) parts.push(item.address);
+  return parts.join(' · ') || '未填地址';
+}
+
+function getItemExtra(item) {
+  var r = item._role || 'technician';
+  if (r === 'technician') return '¥' + (item.price || '?') + ' / 次';
+  if (r === 'villager') {
+    var extras = [];
+    if (item.products && item.products.length) extras.push('农产品' + item.products.length + '种');
+    if (item.crafts && item.crafts.length) extras.push('手工' + item.crafts.length + '种');
+    if (item.skills && item.skills.length) extras.push('技能' + item.skills.length + '项');
+    if (item.jobStatus) extras.push(item.jobStatus);
+    return extras.join(' · ') || '';
+  }
+  if (r === 'factory') {
+    var fExtras = [];
+    if (item.jobs && item.jobs.length) fExtras.push('招工' + item.jobs.length + '岗');
+    if (item.farmDemand) fExtras.push('需农产品');
+    return fExtras.join(' · ') || '';
+  }
+  if (r === 'town_agent' || r === 'county_agent') {
+    var aExtras = [];
+    if (item.developedCount) aExtras.push('发展' + item.developedCount + '人');
+    if (item.developedFactoriesCount) aExtras.push('发展' + item.developedFactoriesCount + '家');
+    return aExtras.join(' · ') || '';
+  }
+  if (r === 'village_agent') return item.developedCount ? '发展' + item.developedCount + '人' : '';
+  return '';
+}
+
+function getRoleIcon(role) {
+  var cfg = ROLE_CONFIG[role];
+  return cfg ? cfg.icon : '👤';
+}
+
+function getRoleName(role) {
+  var cfg = ROLE_CONFIG[role];
+  return cfg ? cfg.name : role;
+}
+
+function renderCardAdmin(item, showButtons, showDelete, showTop) {
+  var imgs = (item.photos || []).map(function(p) { return '<img src="' + p + '" onerror="imgErr(this)">'; }).join('');
+  var statusColor = item.status === '已通过' ? '#2E7D32' : item.status === '已拒绝' ? '#F44336' : '#FF9800';
+  var role = item._role || 'technician';
+  var roleBadge = '<span style="background:#fce4ec;color:#C2185B;font-size:11px;padding:1px 6px;border-radius:20px;margin-right:4px;">' + getRoleIcon(role) + ' ' + getRoleName(role) + '</span>';
+  var title = getItemTitle(item);
+  var sub = getItemSub(item);
+  var extra = getItemExtra(item);
+  var btns = '';
+  if (showButtons) {
+    btns = '<div class="row-btns"><button class="btn btn-pass btn-sm" onclick="doAudit(\'' + item.id + '\',\'' + item._bin + '\',\'approve\')">✅ 通过</button><button class="btn btn-reject btn-sm" onclick="doAudit(\'' + item.id + '\',\'' + item._bin + '\',\'reject\')">❌ 拒绝</button></div>';
+  }
+  if (showDelete) {
+    btns += '<div class="row-btns" style="margin-top:6px;"><button class="btn btn-sm" style="background:#9E9E9E;color:#fff;" onclick="delItem(\'' + item.id + '\',\'' + item._bin + '\')">🗑 删除</button>';
+    if (showTop) {
+      var topBtn = item.top ? '<button class="btn btn-sm" style="background:#FF9800;color:#fff;" onclick="topItem(\'' + item.id + '\',\'' + item._bin + '\')">取消置顶</button>' : '<button class="btn btn-sm" style="background:#FF9800;color:#fff;" onclick="topItem(\'' + item.id + '\',\'' + item._bin + '\')">置顶</button>';
+      btns += topBtn;
+    }
+    btns += '</div>';
+  }
+  return '<div class="card"><div class="tech-imgs">' + (imgs || '<div style="color:#bbb;font-size:12px;padding:8px;">无照片</div>') + '</div>' +
+    '<div class="tech-field"><b>姓名：</b>' + escapeHtml(title) + ' ' + roleBadge + ' <span style="color:' + statusColor + ';font-size:12px;">[' + escapeHtml(item.status || '待审核') + ']</span></div>' +
+    '<div class="tech-field"><b>电话：</b>' + escapeHtml(item.phone || '未填') + '</div>' +
+    '<div class="tech-field"><b>地址：</b>' + escapeHtml(sub) + '</div>' +
+    (extra ? '<div class="tech-field"><b>信息：</b>' + escapeHtml(extra) + '</div>' : '') +
+    '<div class="tech-field" style="color:#888;"><b>账号：</b>' + escapeHtml(item.account || '') + '</div>' +
+    '<div class="tech-field" style="color:#888;"><b>提交：</b>' + formatTime(item.submitTime) + '</div>' +
+    btns + '</div>';
+}
+
+function renderReviewPanel() {
+  var box = document.getElementById('pendingList');
+  var filtered = allPendingItems;
+  if (currentRoleFilter !== 'all') {
+    filtered = filtered.filter(function(t) { return t._role === currentRoleFilter; });
+  }
+  if (filtered.length === 0) {
+    box.innerHTML = '<div class="empty">⭐ 暂无待审核申请</div>';
+    return;
+  }
+  box.innerHTML = filtered.map(function(t) { return renderCardAdmin(t, true, false); }).join('');
+}
+
+function renderAllPanel() {
+  var box = document.getElementById('allList');
+  var allItems = [];
+  ALL_ROLE_KEYS.forEach(function(key) {
+    var items = (allLoadedData[ROLE_CONFIG[key].bin] || []).filter(function(t) { return t.status !== '已撤销'; });
+    items.forEach(function(item) { item._bin = ROLE_CONFIG[key].bin; item._role = key; });
+    allItems = allItems.concat(items);
+  });
+  var filtered = allItems;
+  if (currentRoleFilter !== 'all') {
+    filtered = filtered.filter(function(t) { return t._role === currentRoleFilter; });
+  }
+  if (filtered.length === 0) { box.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+  // 置顶优先
+  filtered.sort(function(a,b) { var at=a.top||0,bt=b.top||0; if(at&&bt)return bt-at; if(at)return-1; if(bt)return 1; return 0; });
+  box.innerHTML = filtered.map(function(t) { return renderCardAdmin(t, false, true, true); }).join('');
+}
+
+function doAudit(id, binKey, action) {
+  var list = allLoadedData[binKey] || [];
+  var item = null, idx = -1;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id === id) { item = list[i]; idx = i; break; }
+  }
+  if (!item) { toast('未找到该记录'); return; }
+  item.status = action === 'approve' ? '已通过' : '已拒绝';
+  item.auditTime = Date.now();
+  item.updateTime = Date.now();
+  list[idx] = item;
+  allLoadedData[binKey] = list;
+  JB._setLocal(binKey, list);
+  // 立即重渲染
+  renderReviewPanel();
+  renderAllPanel();
+  updateCounts();
+  toast(action === 'approve' ? '已通过 ✓' : '已拒绝 ✗');
+  // 推云端
+  var delays = [1500, 4000, 9000], attempt = 0;
+  (function tryPush() {
+    JB.put(binKey, list, function(ok) {
+      if (ok) { setCloudBadge(true, '云端已连接'); return; }
+      if (attempt < delays.length) { var w = delays[attempt]; attempt++; setCloudBadge(false, '重试同步中...'); setTimeout(tryPush, w); }
+      else { setCloudBadge(false, '本地模式'); }
+    });
+  })();
+  // 写审核日志
+  var logs = allLoadedData[LOG_KEY] || [];
+  logs.unshift({ id: item.id, name: getItemTitle(item), phone: item.phone, account: item.account || '', action: action === 'approve' ? '通过' : '拒绝', role: item._role, time: Date.now() });
+  if (logs.length > 500) logs = logs.slice(0, 500);
+  allLoadedData[LOG_KEY] = logs;
+  JB._setLocal(LOG_KEY, logs);
+  JB.put(LOG_KEY, logs, function() {});
+  renderHistoryPanel();
+}
+
+function delItem(id, binKey) {
+  if (!confirm('确定删除？删除后不再展示')) return;
+  JB.markDeleted(binKey, id);
+  var list = allLoadedData[binKey] || [];
+  list = list.filter(function(t) { return t.id !== id; });
+  allLoadedData[binKey] = list;
+  JB._setLocal(binKey, list);
+  toast('已删除 ✓');
+  renderAllPanel();
+  updateCounts();
+  var delays = [3000, 6000, 12000], attempt = 0;
+  (function tryPush() {
+    JB.put(binKey, list, function(ok) {
+      if (ok) { setCloudBadge(true, '云端已连接'); return; }
+      if (attempt < delays.length) { var w = delays[attempt]; attempt++; setTimeout(tryPush, w); }
+      else { setCloudBadge(false, '本地模式'); }
+    });
+  })();
+}
+
+function topItem(id, binKey) {
+  var list = allLoadedData[binKey] || [];
+  var item = null, idx = -1;
+  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { item = list[i]; idx = i; break; } }
+  if (!item) { toast('未找到'); return; }
+  if (item.top) { delete item.top; toast('已取消置顶'); }
+  else { item.top = Date.now(); toast('已置顶'); }
+  list[idx] = item;
+  allLoadedData[binKey] = list;
+  JB._setLocal(binKey, list);
+  renderAllPanel();
+  var delays = [3000, 6000, 12000], attempt = 0;
+  (function tryPush() {
+    JB.put(binKey, list, function(ok) {
+      if (ok) setCloudBadge(true, '云端已连接');
+      else if (attempt < delays.length) { var w = delays[attempt++]; setTimeout(tryPush, w); }
+      else setCloudBadge(false, '本地模式');
+    });
+  })();
+}
+
+function renderHistoryPanel() {
   var box = document.getElementById('historyList');
+  var logs = allLoadedData[LOG_KEY] || [];
   if (logs.length === 0) { box.innerHTML = '<div class="empty">暂无审核记录</div>'; return; }
   box.innerHTML = logs.map(function(e) {
     var borderCls = e.action === '通过' ? '' : ' hist-reject';
-    return '<div class="card hist-item' + borderCls + '"><div class="hist-name">' + escapeHtml(e.name) + ' 【' + escapeHtml(e.action) + '】</div><div class="hist-meta">电话：' + escapeHtml(e.phone || '') + ' | 账号：' + escapeHtml(e.account || '') + '</div><div class="hist-meta">' + formatTime(e.time) + '</div></div>';
+    var roleBadge = e.role ? '<span style="background:#fce4ec;color:#C2185B;font-size:11px;padding:0 4px;border-radius:10px;margin-right:4px;">' + (ROLE_CONFIG[e.role] ? ROLE_CONFIG[e.role].icon : '') + '</span>' : '';
+    return '<div class="card hist-item' + borderCls + '"><div class="hist-name">' + roleBadge + escapeHtml(e.name || '') + ' 【' + escapeHtml(e.action) + '】</div><div class="hist-meta">电话：' + escapeHtml(e.phone || '') + ' | 账号：' + escapeHtml(e.account || '') + '</div><div class="hist-meta">' + formatTime(e.time) + '</div></div>';
   }).join('');
 }
 
-function switchTab(t) {
-  document.getElementById('tabReview').className = 'tab' + (t === 'review' ? ' active' : '');
-  document.getElementById('tabHistory').className = 'tab' + (t === 'history' ? ' active' : '');
-  document.getElementById('tabAll').className = 'tab' + (t === 'all' ? ' active' : '');
-  document.getElementById('tabNotice').className = 'tab' + (t === 'notice' ? ' active' : '');
-  document.getElementById('reviewPanel').style.display = t === 'review' ? 'block' : 'none';
-  document.getElementById('historyPanel').style.display = t === 'history' ? 'block' : 'none';
-  document.getElementById('allPanel').style.display = t === 'all' ? 'block' : 'none';
-  document.getElementById('noticePanel').style.display = t === 'notice' ? 'block' : 'none';
+function loadNotices() {
+  var list = allLoadedData[NOTICE_KEY] || [];
+  renderNotices(list);
 }
 
 function previewNoticeImg(input, boxId) {
@@ -609,44 +718,30 @@ function addNotice() {
   var content = document.getElementById('noticeContent').value.trim();
   if (!title || !content) { toast('请填写标题和内容'); return; }
   toast('正在发布...');
-  // 收集3张图片
   var imgs = [];
   for (var i = 1; i <= 3; i++) {
     var box = document.getElementById('nImg' + i + 'Box');
     var img = box ? box.querySelector('img') : null;
     if (img) imgs.push(img.src);
   }
-  JB.get(NOTICE_KEY, function(list, getOk) {
-    if (!Array.isArray(list)) list = [];
-    var newNotice = { id: JB.genId(), title: title, content: content, photos: imgs, time: Date.now() };
-    list.unshift(newNotice);
-    // 无论云端读取是否成功，都强制把最新公告推到云端（失败则本地兜底，限速重试后会自动同步）
-    // 强力重试：3s/6s/12s 指数退避，最多3次
-    var _nDelays = [3000, 6000, 12000];
-    var _nAttempt = 0;
-    function _nTryPush() {
-      JB.put(NOTICE_KEY, list, function(putOk) {
-        if (putOk) {
-          setCloudBadge(true, '云端已连接');
-          toast('公告已发布 ✓');
-        } else if (_nAttempt < _nDelays.length) {
-          var _w = _nDelays[_nAttempt]; _nAttempt++;
-          setCloudBadge(false, '重试同步中...');
-          setTimeout(_nTryPush, _w);
-        } else {
-          setCloudBadge(false, '本地模式');
-          toast('已保存，联网后自动同步');
-        }
-        document.getElementById('noticeTitle').value = '';
-        document.getElementById('noticeContent').value = '';
-        for (var j = 1; j <= 3; j++) {
-          document.getElementById('nImg' + j + 'Box').innerHTML = '+';
-        }
-        renderNotices(list);
-      });
-    }
-    _nTryPush();
-  });
+  var list = allLoadedData[NOTICE_KEY] || [];
+  var newNotice = { id: JB.genId(), title: title, content: content, photos: imgs, time: Date.now() };
+  list.unshift(newNotice);
+  allLoadedData[NOTICE_KEY] = list;
+  JB._setLocal(NOTICE_KEY, list);
+  renderNotices(list);
+  document.getElementById('noticeTitle').value = '';
+  document.getElementById('noticeContent').value = '';
+  for (var j = 1; j <= 3; j++) { document.getElementById('nImg' + j + 'Box').innerHTML = '+'; }
+  updateCounts();
+  var delays = [3000, 6000, 12000], attempt = 0;
+  (function tryPush() {
+    JB.put(NOTICE_KEY, list, function(ok) {
+      if (ok) { setCloudBadge(true, '云端已连接'); toast('公告已发布 ✓'); }
+      else if (attempt < delays.length) { var w = delays[attempt++]; setTimeout(tryPush, w); }
+      else { setCloudBadge(false, '本地模式'); toast('已保存，联网后自动同步'); }
+    });
+  })();
 }
 
 function renderNotices(list) {
@@ -661,38 +756,50 @@ function renderNotices(list) {
       }
       photosHtml += '</div>';
     }
-    return '<div class="card notice-item"><div style="flex:1;"><b style="font-size:15px;">' + escapeHtml(n.title) + '</b><div style="font-size:13px;color:#555;margin-top:6px;white-space:pre-wrap;line-height:1.5;">' + escapeHtml(n.content) + '</div>' + photosHtml + '<div style="font-size:11px;color:#bbb;margin-top:8px;">' + formatTime(n.time) + '</div></div><div class="notice-del" <div style="display:flex;gap:12px;white-space:nowrap;"><div class="notice-del" style="color:#FF9800;" onclick="republishNotice(\'' + n.id + '\')">重新发布</div><div class="notice-del" onclick="delNotice(\'' + n.id + '\')">删除</div></div></div>';
+    return '<div class="card notice-item"><div style="flex:1;"><b style="font-size:15px;">' + escapeHtml(n.title) + '</b><div style="font-size:13px;color:#555;margin-top:6px;white-space:pre-wrap;line-height:1.5;">' + escapeHtml(n.content) + '</div>' + photosHtml + '<div style="font-size:11px;color:#bbb;margin-top:8px;">' + formatTime(n.time) + '</div></div><div style="display:flex;gap:12px;white-space:nowrap;"><div class="notice-del" style="color:#FF9800;" onclick="republishNotice(\'' + n.id + '\')">重新发布</div><div class="notice-del" onclick="delNotice(\'' + n.id + '\')">删除</div></div></div>';
   }).join('');
+}
+
+function republishNotice(id) {
+  var list = allLoadedData[NOTICE_KEY] || [];
+  var n = null, ni = -1;
+  for (var i = 0; i < list.length; i++) { if (list[i].id === id) { n = list[i]; ni = i; break; } }
+  if (!n) { toast('未找到该公告'); return; }
+  n.time = Date.now();
+  list.splice(ni, 1); list.unshift(n);
+  allLoadedData[NOTICE_KEY] = list;
+  JB._setLocal(NOTICE_KEY, list);
+  renderNotices(list);
+  var delays = [3000, 6000, 12000], attempt = 0;
+  (function tryPush() {
+    JB.put(NOTICE_KEY, list, function(ok) {
+      if (ok) { setCloudBadge(true, '云端已连接'); toast('已重新发布'); }
+      else if (attempt < delays.length) { var w = delays[attempt++]; setTimeout(tryPush, w); }
+      else { setCloudBadge(false, '本地模式'); toast('已保存'); }
+    });
+  })();
 }
 
 function delNotice(id) {
   if (!confirm('确定删除该公告？')) return;
-  JB.markDeleted(NOTICE_KEY, id); // 先标记删除，即使云端PUT失败也不会再出现
-  var list = JB._getLocal(NOTICE_KEY);
+  JB.markDeleted(NOTICE_KEY, id);
+  var list = allLoadedData[NOTICE_KEY] || [];
   list = list.filter(function(n) { return n.id !== id; });
+  allLoadedData[NOTICE_KEY] = list;
   JB._setLocal(NOTICE_KEY, list);
-  toast('已删除 ?');
+  toast('已删除');
   renderNotices(list);
-  // 强力重试：3s/6s/12s 指数退避，最多3次
-  var delays = [3000, 6000, 12000];
-  var attempt = 0;
-  function tryPush() {
+  updateCounts();
+  var delays = [3000, 6000, 12000], attempt = 0;
+  (function tryPush() {
     JB.put(NOTICE_KEY, list, function(ok) {
-      if (ok) { setCloudBadge(true, '云端已连接'); return; }
-      if (attempt < delays.length) {
-        var wait = delays[attempt]; attempt++;
-        setCloudBadge(false, '重试同步中...');
-        setTimeout(tryPush, wait);
-      } else {
-        setCloudBadge(false, '本地模式');
-        toast('云端同步失败，已存本地');
-      }
+      if (ok) setCloudBadge(true, '云端已连接');
+      else if (attempt < delays.length) { var w = delays[attempt++]; setTimeout(tryPush, w); }
+      else setCloudBadge(false, '本地模式');
     });
-  }
-  tryPush();
+  })();
 }
 
-// admin 页内直接配置云端（不跳转）
 function toggleAdminCloudInput() {
   var el = document.getElementById('adminCloudInput');
   if (!el) return;
@@ -724,7 +831,6 @@ function saveAdminCloud() {
   });
 }
 
-// 自动检测云端连接状态
 (function checkCloud() {
   JB.get('accounts', function(data) {
     cloudOk = Array.isArray(data);
@@ -732,16 +838,15 @@ function saveAdminCloud() {
   });
 })();
 
-// 已登录则直接进入后台
 var _adminLogged = false;
 try { _adminLogged = localStorage.getItem('rose_admin_logged') === '1'; } catch(e) { _adminLogged = false; }
 if (_adminLogged) {
   document.getElementById('loginView').style.display = 'none';
   document.getElementById('adminView').style.display = 'block';
+  renderRoleTabBar();
   loadAll();
 }
 </script>
-
 
 <script src="cloud-config.js"></script>
 <script src="cloud-api.js"></script>
