@@ -1,5 +1,5 @@
 /**
- * cloud-api.js — 百合上门 云端适配器（GitHub Repo as DB）
+ * cloud-api.js — 百合网络 云端适配器（GitHub Repo as DB）
  * 实现 window.RoseSyncAdapter 接口（pull / push / status）。
  *
  * 配置来源（优先级）：
@@ -172,5 +172,5 @@
     window.百合_openCloudSetup = function () { location.href = 'cloud-setup.html'; };
   }
 
-  console.log('[百合上门] cloud-api.js (GitHub Repo) loaded — ' + (cfg ? cfg.owner + '/' + cfg.repo + ' / ' + cfg.path : 'not configured → local mode'));
+  console.log('[百合网络] cloud-api.js (GitHub Repo) loaded — ' + (cfg ? cfg.owner + '/' + cfg.repo + ' / ' + cfg.path : 'not configured → local mode'));
 })();
