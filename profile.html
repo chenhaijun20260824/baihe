@@ -5,13 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
 /*
- * rose-sync.js — 本地优先同步核心库（取代 jsonbin.js）
- * 架构：本地优先（localStorage 永远可用），可选接入轻量后端做多端同步。
- * 默认不接任何云端：零额度、零网络依赖、不会弹"密钥失败"红条。
- * 多端同步：给 window.RoseSyncAdapter 赋值适配器即可（见 local-api.js 示例）。
+ * rose-sync.js — 本地优先同步核心库
  */
 var JB = {
-  BINS: { accounts: 'accounts', technicians: 'technicians', notices: 'notices', audit_log: 'audit_log' },
+  BINS: {
+    accounts: 'accounts',
+    technicians: 'technicians',
+    notices: 'notices',
+    audit_log: 'audit_log',
+    village_heads: 'village_heads',
+    villagers: 'villagers',
+    supermarkets: 'supermarkets',
+    markets: 'markets',
+    factories: 'factories',
+    customer_service: 'customer_service',
+    sales_managers: 'sales_managers',
+    village_agents: 'village_agents',
+    town_agents: 'town_agents',
+    county_agents: 'county_agents'
+  },
   _adapterNow: function () {
     try { return (typeof window !== 'undefined' && window.RoseSyncAdapter) ? window.RoseSyncAdapter : null; }
     catch (e) { return null; }
@@ -138,11 +150,7 @@ var JB = {
     try { localStorage.setItem(this._deletedKey(binKey), JSON.stringify(d)); } catch (e) {}
   }
 };
-
-// 页面加载后如有适配器则静默同步；纯本地模式下直接 no-op（不联网、不弹窗）
 setTimeout(function () { try { JB.syncAll(); } catch (e) {} }, 800);
-
-// 全局错误捕获（保留，便于排查）
 window.onerror = function (m, s, l, c) {
   try {
     var d = document.createElement("div");
@@ -152,52 +160,83 @@ window.onerror = function (m, s, l, c) {
   } catch (e) {}
   return false;
 };
+  </script>
 
-/*
- * 可选多端同步：在引入本文件之后、页面逻辑之前设置 window.RoseSyncAdapter 即可，
- * 例如 local-api.js。本地永远优先，后端不可用也不影响本机数据。
- */
-</script>
-
-
-
-
-
-  <title>个人中心 - 百合上门</title>
+  <title>个人中心 - 百合网络</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #FFF5F7; color: #333; min-height: 100vh; padding-bottom: 40px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #FFF5F7; color: #333; min-height: 100vh; padding-bottom: 60px; }
     .header { background: linear-gradient(135deg, #C2185B, #E91E63); color: #fff; padding: 16px; text-align: center; font-size: 18px; font-weight: bold; }
     .container { padding: 16px; max-width: 600px; margin: 0 auto; }
     .card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }
     .form-group { margin-bottom: 14px; }
     .form-label { font-size: 13px; color: #666; margin-bottom: 6px; display: block; font-weight: 500; }
-    .form-input, .form-textarea { width: 100%; padding: 11px 14px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 15px; outline: none; font-family: inherit; box-sizing: border-box; }
-    .form-input:focus, .form-textarea:focus { border-color: #C2185B; }
+    .form-input, .form-textarea, .form-select { width: 100%; padding: 11px 14px; border: 1.5px solid #e0e0e0; border-radius: 10px; font-size: 15px; outline: none; font-family: inherit; box-sizing: border-box; background: #fff; }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: #C2185B; }
     .form-textarea { resize: vertical; min-height: 70px; }
+    .form-select { cursor: pointer; }
     .btn { width: 100%; padding: 13px; background: linear-gradient(135deg, #C2185B, #E91E63); color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 6px; }
     .btn:active { transform: scale(.98); }
     .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; }
+    .btn-outline { background: #fff; color: #C2185B; border: 1.5px solid #C2185B; }
     .status-tip { font-size: 14px; padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; line-height: 1.6; }
     .tip-wait { background: #FFF3E0; color: #E65100; border-left: 4px solid #FF9800; }
     .tip-ok { background: #E8F5E9; color: #2E7D32; border-left: 4px solid #2E7D32; }
     .tip-reject { background: #FFEBEE; color: #C62828; border-left: 4px solid #F44336; }
     .tip-new { background: #FFF8E1; color: #795548; border-left: 4px solid #795548; }
     .photos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-    .photo-item { position: relative; width: 80px; height: 80px; border-radius: 10px; overflow: hidden; background: #f3e4e9; }
+    .photo-item { position: relative; width: 72px; height: 72px; border-radius: 10px; overflow: hidden; background: #f3e4e9; }
     .photo-item img { width: 100%; height: 100%; object-fit: cover; }
-    .photo-del { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,.6); color: #fff; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; }
-    .photo-add { width: 80px; height: 80px; border: 1.5px dashed #C2185B; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: #C2185B; cursor: pointer; }
+    .photo-del { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,.6); color: #fff; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; }
+    .photo-add { width: 72px; height: 72px; border: 1.5px dashed #C2185B; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #C2185B; cursor: pointer; }
     .empty { text-align: center; color: #bbb; padding: 40px 20px; }
     .empty a { color: #C2185B; }
     .logout-btn { color: #999; font-size: 13px; cursor: pointer; text-align: center; margin-top: 10px; }
-    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.8); color: #fff; padding: 12px 28px; border-radius: 10px; font-size: 14px; z-index: 99999; }
+    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.8); color: #fff; padding: 12px 28px; border-radius: 10px; font-size: 14px; z-index: 99999; pointer-events: none; white-space: nowrap; }
     .cloud-badge { position: fixed; top: 8px; right: 8px; background: #4CAF50; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 20px; z-index: 999; }
     .cloud-badge.offline { background: #999; }
+    .section-title { font-size: 15px; font-weight: bold; color: #C2185B; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .role-change-btn { background: #fff; border: 1.5px solid #C2185B; color: #C2185B; padding: 8px 16px; border-radius: 10px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+    .role-change-btn:active { background: #fce4ec; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-box { background: #fff; border-radius: 16px; max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 20px; }
+    .modal-title { font-size: 17px; font-weight: bold; color: #C2185B; margin-bottom: 16px; text-align: center; }
+    .role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .role-item { background: #fff; border: 1.5px solid #eee; border-radius: 12px; padding: 14px 8px; text-align: center; cursor: pointer; transition: all .1s; }
+    .role-item:hover { border-color: #C2185B; background: #fff0f4; }
+    .role-item.active { border-color: #C2185B; background: #fce4ec; }
+    .role-item .role-icon { font-size: 28px; margin-bottom: 4px; }
+    .role-item .role-name { font-size: 12px; color: #333; font-weight: 500; }
+    .modal-close { text-align: center; margin-top: 14px; }
+    .modal-close button { background: #eee; color: #666; border: none; padding: 10px 24px; border-radius: 10px; cursor: pointer; font-size: 14px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+    .dynamic-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .dynamic-row .form-input, .dynamic-row .form-textarea { margin-bottom: 0; }
+    .dynamic-row .del-btn { background: #ffebee; color: #c62828; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .add-row-btn { width: 100%; padding: 8px; background: #fff; border: 1.5px dashed #C2185B; color: #C2185B; border-radius: 10px; cursor: pointer; font-size: 13px; margin-top: 4px; }
+    .add-row-btn:active { background: #fce4ec; }
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .checkbox-item { display: flex; align-items: center; gap: 4px; background: #f9f9f9; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; border: 1.5px solid #e0e0e0; }
+    .checkbox-item.checked { background: #fce4ec; border-color: #C2185B; color: #C2185B; }
+    .checkbox-item input { display: none; }
+    .radio-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+    .radio-item { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; }
+    .radio-item input[type="radio"] { accent-color: #C2185B; width: 16px; height: 16px; }
+    .current-role-bar { background: linear-gradient(135deg, #fff0f4, #fce4ec); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .current-role-bar .role-emoji { font-size: 22px; }
+    .current-role-bar .role-text { flex: 1; }
+    .current-role-bar .role-name { font-weight: bold; color: #C2185B; }
+    .form-section { border-top: 1px solid #f0f0f0; padding-top: 14px; margin-top: 14px; }
+    .form-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .section-header { font-size: 14px; font-weight: bold; color: #C2185B; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .inline-fields { display: flex; gap: 8px; }
+    .inline-fields .form-group { flex: 1; margin-bottom: 10px; }
   </style>
 
   <!-- PWA 配置 -->
-  <link rel="manifest" href="manifest.json?v=20260817">
+  <link rel="manifest" href="manifest.json?v=20260916">
   <meta name="theme-color" content="#C2185B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -215,54 +254,51 @@ window.imgErr = function(img) {
   <div id="cloudBadge" class="cloud-badge" style="display:none;"></div>
   <div class="header">个人中心</div>
   <div class="container">
-    <div id="loggedOut" class="empty">请先 <a href="login.html?v=20260817">登录</a> 或 <a href="register_v2.html?v=20260824">注册</a> 后填写技师资料</div>
+    <div id="loggedOut" class="empty">请先 <a href="login.html?v=20260916">登录</a> 或 <a href="register_v2.html?v=20260916">注册</a> 后填写资料</div>
     <div id="loggedIn" style="display:none;">
       <div id="statusTip" style="display:none;"></div>
-      <div class="card">
-        <div class="form-group">
-          <label class="form-label">技师姓名 *</label>
-          <input class="form-input" id="name" placeholder="例如：小芳">
-        </div>
-        <div class="form-group">
-          <label class="form-label">联系电话 *</label>
-          <input class="form-input" id="phone" placeholder="例如：13800138000">
-        </div>
-        <div class="form-group">
-          <label class="form-label">服务地址 *</label>
-          <input class="form-input" id="address" placeholder="例如：南京市XX路XX号">
-        </div>
-        <div class="form-group">
-          <label class="form-label">价格（元/次）*</label>
-          <input class="form-input" id="price" placeholder="例如：198" type="number">
-        </div>
-        <div class="form-group">
-          <label class="form-label">服务项目（最多3项）</label>
-          <div id="servicesInputs">
-            <input type="text" class="form-input" id="s1" placeholder="第1项，如：全身推拿">
-            <input type="text" class="form-input" id="s2" placeholder="第2项，如：肩颈按摩">
-            <input type="text" class="form-input" id="s3" placeholder="第3项，如：精油SPA">
-          </div>
-        </div>
+      <div id="currentRoleBar" class="current-role-bar" style="display:none;">
+        <span class="role-emoji" id="currentRoleEmoji"></span>
+        <span class="role-text">当前角色：<span class="role-name" id="currentRoleName"></span></span>
+        <button class="role-change-btn" onclick="openRoleModal()">🔄 修改角色</button>
       </div>
-      <div class="card">
-        <div class="form-group">
-          <label class="form-label">形象照片（最多9张）</label>
-          <div class="photos" id="photoBox"></div>
-          <input type="file" id="photoFile" accept="image/*" multiple style="display:none;" onchange="onPhotos(this)">
-        </div>
-      </div>
-      <button class="btn" id="submitBtn" onclick="submitOrUpdate()">提交审核</button>
-      <div class="logout-btn" onclick="logout()">退出登录</div>
-      
-      
+
+      <div id="roleFormContainer"></div>
+    </div>
+  </div>
+
+  <!-- 角色选择弹窗 -->
+  <div id="roleModal" class="modal-overlay" onclick="if(event.target===this)closeRoleModal()">
+    <div class="modal-box">
+      <div class="modal-title">选择角色</div>
+      <div class="role-grid" id="roleGrid"></div>
+      <div class="modal-close"><button onclick="closeRoleModal()">取消</button></div>
     </div>
   </div>
 
 <script>
+// ==================== 角色配置 ====================
+var ROLE_CONFIG = {
+  technician: { name: '技师', icon: '💆', bin: 'technicians', prefix: 'tech_' },
+  village_head: { name: '村长', icon: '🏘️', bin: 'village_heads', prefix: 'vh_' },
+  villager: { name: '村民', icon: '🧑‍🌾', bin: 'villagers', prefix: 'vil_' },
+  supermarket: { name: '超市', icon: '🏪', bin: 'supermarkets', prefix: 'sup_' },
+  market: { name: '农贸市场', icon: '🥬', bin: 'markets', prefix: 'mkt_' },
+  factory: { name: '企业工厂', icon: '🏭', bin: 'factories', prefix: 'fac_' },
+  customer_service: { name: '客服', icon: '🎧', bin: 'customer_service', prefix: 'cs_' },
+  sales_manager: { name: '销售经理', icon: '📊', bin: 'sales_managers', prefix: 'sm_' },
+  village_agent: { name: '村级代理', icon: '📍', bin: 'village_agents', prefix: 'va_' },
+  town_agent: { name: '镇级代理', icon: '📌', bin: 'town_agents', prefix: 'ta_' },
+  county_agent: { name: '县级代理', icon: '🗺️', bin: 'county_agents', prefix: 'ca_' }
+};
+
+var ALL_ROLES = Object.keys(ROLE_CONFIG);
 var photos = [];
-var myTech = null;
+var pendingUploads = 0;
+var currentRole = null;
+var myRecord = null;
 var user = null;
-var pendingUploads = 0; // 正在上传的图片数，提交时需等其归零
+var _allRoleData = {};
 
 function toast(msg) {
   var el = document.createElement('div');
@@ -272,21 +308,21 @@ function toast(msg) {
   setTimeout(function() { el.remove(); }, 2200);
 }
 
-function asArr(v) {
-  if (Array.isArray(v)) return v;
-  if (v && typeof v === 'object' && Array.isArray(v.record)) return v.record;
-  return [];
-}
-
-
 function logout() {
   if (confirm('确定退出？')) {
     localStorage.removeItem('rose_current_user');
-    location.href='index.html?v=20260817';
+    location.href = 'index.html?v=20260916';
   }
 }
 
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ==================== 图片上传 ====================
 var MAX_PHOTOS = 9;
+
 function compressImage(file, cb) {
   var reader = new FileReader();
   reader.onload = function(e) {
@@ -344,7 +380,6 @@ function dataURLtoBlob(dataUrl) {
   } catch (e) { return null; }
 }
 
-// 存一张照片：云端优先（上传 GitHub 图床拿 URL），失败则本地 base64 兜底
 function storePhoto(file, cb) {
   compressImage(file, function(b64) {
     if (!b64) { cb(null); return; }
@@ -352,10 +387,10 @@ function storePhoto(file, cb) {
     if (adapter && typeof adapter.uploadImage === 'function') {
       var blob = dataURLtoBlob(b64);
       if (!blob) { cb(b64); return; }
-      var fname = 'tech_' + Date.now() + '_' + Math.floor(Math.random() * 1e9) + '.jpg';
+      var fname = 'img_' + Date.now() + '_' + Math.floor(Math.random() * 1e9) + '.jpg';
       adapter.uploadImage(fname, blob, function(url) { cb(url || b64); });
     } else {
-      cb(b64); // 本地模式
+      cb(b64);
     }
   });
 }
@@ -381,116 +416,841 @@ function onPhotos(input) {
   input.value = '';
 }
 
+// ==================== 角色弹窗 ====================
+function openRoleModal() {
+  var grid = document.getElementById('roleGrid');
+  grid.innerHTML = '';
+  ALL_ROLES.forEach(function(key) {
+    var cfg = ROLE_CONFIG[key];
+    var item = document.createElement('div');
+    item.className = 'role-item' + (key === currentRole ? ' active' : '');
+    item.innerHTML = '<div class="role-icon">' + cfg.icon + '</div><div class="role-name">' + cfg.name + '</div>';
+    item.onclick = function() {
+      if (key === currentRole) { closeRoleModal(); return; }
+      if (confirm('切换角色将把当前角色的资料标记为"已撤销"，确定切换到"' + cfg.name + '"吗？')) {
+        closeRoleModal();
+        changeRole(key);
+      }
+    };
+    grid.appendChild(item);
+  });
+  document.getElementById('roleModal').style.display = 'flex';
+}
 
+function closeRoleModal() {
+  document.getElementById('roleModal').style.display = 'none';
+}
 
+function changeRole(newRole) {
+  var cfg = ROLE_CONFIG[newRole];
+  if (!cfg) return;
+  // 1. 如果有旧角色资料，标记为已撤销
+  if (currentRole && myRecord) {
+    var oldBin = ROLE_CONFIG[currentRole].bin;
+    (function(oldBinKey, oldRec) {
+      JB.get(oldBinKey, function(list) {
+        if (!Array.isArray(list)) list = [];
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === oldRec.id) {
+            list[i].status = '已撤销';
+            list[i].updateTime = Date.now();
+            JB.put(oldBinKey, list, function() {});
+            break;
+          }
+        }
+      });
+    })(oldBin, myRecord);
+  }
+  // 2. 更新当前用户角色
+  user.role = newRole;
+  localStorage.setItem('rose_current_user', JSON.stringify(user));
+  // 3. 同步更新 accounts 中的 role
+  JB.get('accounts', function(list) {
+    if (!Array.isArray(list)) list = [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === user.id) {
+        list[i].role = newRole;
+        JB.put('accounts', list, function() {});
+        break;
+      }
+    }
+  });
+  currentRole = newRole;
+  myRecord = null;
+  photos = [];
+  // 4. 重新渲染表单
+  renderProfilePage();
+  toast('已切换为 ' + cfg.name + '，请填写新资料');
+}
 
+// ==================== 表单渲染 ====================
+function renderProfilePage() {
+  // 渲染角色选择条
+  var bar = document.getElementById('currentRoleBar');
+  if (currentRole) {
+    bar.style.display = 'flex';
+    var cfg = ROLE_CONFIG[currentRole];
+    document.getElementById('currentRoleEmoji').textContent = cfg.icon;
+    document.getElementById('currentRoleName').textContent = cfg.name;
+  } else {
+    bar.style.display = 'none';
+  }
+  // 渲染状态提示
+  renderStatus();
+  // 渲染对应角色表单
+  renderRoleForm(currentRole);
+}
 
 function renderStatus() {
   var tip = document.getElementById('statusTip');
   var btn = document.getElementById('submitBtn');
+  if (!tip || !btn) return;
   tip.style.display = 'block';
-  if (myTech) {
-    document.getElementById('name').value = myTech.name || '';
-    document.getElementById('phone').value = myTech.phone || '';
-    document.getElementById('address').value = myTech.address || '';
-    document.getElementById('price').value = myTech.price || '';
-    // 兼容：services 可能是数组（新）或字符串（旧）
-    var svcs = myTech.services;
-    if (typeof svcs === 'string') svcs = svcs ? svcs.split(/[,，、]/).filter(Boolean) : [];
-    document.getElementById('s1').value = svcs[0] || '';
-    document.getElementById('s2').value = svcs[1] || '';
-    document.getElementById('s3').value = svcs[2] || '';
-    photos = (myTech.photos && myTech.photos.length) ? myTech.photos.slice() : [];
-    renderPhotos();
-    if (myTech.status === '待审核') {
+  if (myRecord) {
+    if (myRecord.status === '待审核') {
       tip.className = 'status-tip tip-wait';
       tip.innerHTML = '⏳ <b>审核中</b><br>您的资料已提交，请耐心等待管理员审核...';
       btn.textContent = '修改资料并重新提交';
-    } else if (myTech.status === '被拒绝') {
+    } else if (myRecord.status === '已拒绝' || myRecord.status === '已拒绝') {
       tip.className = 'status-tip tip-reject';
       tip.innerHTML = '❌ <b>审核未通过</b><br>请修改下方资料后重新提交';
       btn.textContent = '修改后重新提交';
-    } else if (myTech.status === '已通过') {
+    } else if (myRecord.status === '已通过') {
       tip.className = 'status-tip tip-ok';
       tip.innerHTML = '✅ <b>已通过审核</b><br>您的资料已展示在首页！';
       btn.textContent = '修改资料';
+    } else if (myRecord.status === '已撤销') {
+      tip.className = 'status-tip tip-new';
+      tip.innerHTML = '📋 角色已切换，请填写新资料';
+      btn.textContent = '提交审核';
+    } else {
+      tip.className = 'status-tip tip-new';
+      tip.innerHTML = '📋 请填写下方资料并提交审核';
+      btn.textContent = '提交审核';
     }
   } else {
     tip.className = 'status-tip tip-new';
     tip.innerHTML = '📋 请填写下方资料并提交审核（带 * 为必填）';
     btn.textContent = '提交审核';
-    photos = [];
-    renderPhotos();
   }
 }
 
-function submitOrUpdate() {
-  if (!user) { location.href='login.html?v=20260817'; return; }
-  if (pendingUploads > 0) { toast('图片还在上传中，请稍候…'); return; }
-  var name = document.getElementById('name').value.trim();
-  var phone = document.getElementById('phone').value.trim();
-  var address = document.getElementById('address').value.trim();
-  var price = document.getElementById('price').value.trim();
-  // 收集3个服务项目，合并为数组
-  var s1 = document.getElementById('s1').value.trim();
-  var s2 = document.getElementById('s2').value.trim();
-  var s3 = document.getElementById('s3').value.trim();
-  var svcs = [s1, s2, s3].filter(function(v){ return v; });
-  if (svcs.length === 0) { toast('请填写至少1项服务项目'); return; }
+function renderRoleForm(role) {
+  var container = document.getElementById('roleFormContainer');
+  if (!role) {
+    container.innerHTML = '<div class="card"><p style="text-align:center;color:#bbb;padding:20px;">请先选择角色</p><button class="btn btn-outline" onclick="openRoleModal()" style="margin-top:12px;">🔄 选择角色</button></div>';
+    return;
+  }
+  var cfg = ROLE_CONFIG[role];
+  var html = '';
+  html += '<div class="card" id="formCard">';
+  html += '<div class="section-title">' + cfg.icon + ' ' + cfg.name + ' 资料</div>';
 
-  if (!name) { toast('请填写姓名'); return; }
-  if (!phone) { toast('请填写电话'); return; }
-  if (!address) { toast('请填写地址'); return; }
-  if (!price) { toast('请填写价格'); return; }
-  if (svcs.length === 0) { toast('请填写服务项目'); return; }
-  
+  switch (role) {
+    case 'technician':
+      html += formTechnician();
+      break;
+    case 'village_head':
+      html += formVillageHead();
+      break;
+    case 'villager':
+      html += formVillager();
+      break;
+    case 'supermarket':
+      html += formSupermarket();
+      break;
+    case 'market':
+      html += formMarket();
+      break;
+    case 'factory':
+      html += formFactory();
+      break;
+    case 'customer_service':
+      html += formCustomerService();
+      break;
+    case 'sales_manager':
+      html += formSalesManager();
+      break;
+    case 'village_agent':
+      html += formVillageAgent();
+      break;
+    case 'town_agent':
+      html += formTownAgent();
+      break;
+    case 'county_agent':
+      html += formCountyAgent();
+      break;
+  }
+
+  // 照片上传（所有角色通用）
+  html += '<div class="form-section">';
+  html += '<div class="section-header">📷 形象照片（最多9张）</div>';
+  html += '<div class="photos" id="photoBox"></div>';
+  html += '<input type="file" id="photoFile" accept="image/*" multiple style="display:none;" onchange="onPhotos(this)">';
+  html += '</div>';
+
+  html += '<button class="btn" id="submitBtn" onclick="submitOrUpdate()">提交审核</button>';
+  html += '<div class="logout-btn" onclick="logout()">退出登录</div>';
+  html += '</div>';
+
+  container.innerHTML = html;
+  renderPhotos();
+
+  // 填充已有数据
+  if (myRecord) {
+    fillFormData(role, myRecord);
+  }
+
+  // 初始化动态行（农产品、手工等）
+  initDynamicRows();
+  initCheckboxRows();
+}
+
+function fillFormData(role, data) {
+  if (!data) return;
+  photos = (data.photos && data.photos.length) ? data.photos.slice() : [];
+  renderPhotos();
+  // 填充通用字段
+  var fields = ['name', 'phone', 'province', 'city', 'county', 'village', 'town', 'address', 'description', 'age', 'gender'];
+  fields.forEach(function(f) {
+    var el = document.getElementById('f_' + f);
+    if (el && data[f]) el.value = data[f];
+  });
+  // 角色特定字段
+  switch (role) {
+    case 'technician':
+      var svcs = data.services;
+      if (typeof svcs === 'string') svcs = svcs ? svcs.split(/[,，、]/).filter(Boolean) : [];
+      ['s1','s2','s3'].forEach(function(id, i) {
+        var el = document.getElementById(id);
+        if (el && svcs && svcs[i]) el.value = svcs[i];
+      });
+      var priceEl = document.getElementById('price');
+      if (priceEl && data.price) priceEl.value = data.price;
+      break;
+    case 'villager':
+      // 农产品
+      if (data.products && data.products.length) {
+        data.products.forEach(function(p, i) {
+          var nameEl = document.getElementById('prod_name_' + i);
+          var priceEl = document.getElementById('prod_price_' + i);
+          if (nameEl) nameEl.value = p.name || '';
+          if (priceEl) priceEl.value = p.price || '';
+        });
+      }
+      // 手工
+      if (data.crafts && data.crafts.length) {
+        data.crafts.forEach(function(c, i) {
+          var nameEl = document.getElementById('craft_name_' + i);
+          var priceEl = document.getElementById('craft_price_' + i);
+          if (nameEl) nameEl.value = c.name || '';
+          if (priceEl) priceEl.value = c.price || '';
+        });
+      }
+      // 技能
+      if (data.skills && Array.isArray(data.skills)) {
+        data.skills.forEach(function(s) {
+          var el = document.getElementById('skill_' + s);
+          if (el) { el.checked = true; el.closest('.checkbox-item').classList.add('checked'); }
+        });
+      }
+      // 求职状态
+      if (data.jobStatus) {
+        var radios = document.getElementsByName('jobStatus');
+        for (var i = 0; i < radios.length; i++) {
+          if (radios[i].value === data.jobStatus) { radios[i].checked = true; break; }
+        }
+      }
+      // 代理选择
+      ['villageAgent','townAgent','countyAgent'].forEach(function(f) {
+        var el = document.getElementById('f_' + f);
+        if (el && data[f]) el.value = data[f];
+      });
+      break;
+    case 'supermarket':
+      if (data.demands && data.demands.length) {
+        data.demands.forEach(function(d, i) {
+          var el = document.getElementById('demand_' + i);
+          if (el) el.value = d;
+        });
+      }
+      if (data.marketName) {
+        var mn = document.getElementById('f_marketName');
+        if (mn) mn.value = data.marketName;
+      }
+      break;
+    case 'market':
+      if (data.marketName) {
+        var mn2 = document.getElementById('f_marketName');
+        if (mn2) mn2.value = data.marketName;
+      }
+      if (data.houseNumber) {
+        var hn = document.getElementById('f_houseNumber');
+        if (hn) hn.value = data.houseNumber;
+      }
+      if (data.demands && data.demands.length) {
+        data.demands.forEach(function(d, i) {
+          var el = document.getElementById('demand_' + i);
+          if (el) el.value = d;
+        });
+      }
+      break;
+    case 'factory':
+      if (data.factoryName) {
+        var fn = document.getElementById('f_factoryName');
+        if (fn) fn.value = data.factoryName;
+      }
+      if (data.product) {
+        var p2 = document.getElementById('f_product');
+        if (p2) p2.value = data.product;
+      }
+      if (data.jobs && data.jobs.length) {
+        data.jobs.forEach(function(j, i) {
+          var jobEl = document.getElementById('job_title_' + i);
+          var salEl = document.getElementById('job_salary_' + i);
+          if (jobEl) jobEl.value = j.title || '';
+          if (salEl) salEl.value = j.salary || '';
+        });
+      }
+      if (data.farmDemand) {
+        var fd = document.getElementById('f_farmDemand');
+        if (fd) fd.value = data.farmDemand;
+      }
+      break;
+    case 'customer_service':
+    case 'sales_manager':
+      if (data.serviceArea) {
+        var sa = document.getElementById('f_serviceArea');
+        if (sa) sa.value = data.serviceArea;
+      }
+      if (data.linkedAgents) {
+        var la = document.getElementById('f_linkedAgents');
+        if (la) la.value = data.linkedAgents;
+      }
+      break;
+    case 'village_agent':
+    case 'town_agent':
+    case 'county_agent':
+      if (data.agentName) {
+        var an = document.getElementById('f_agentName');
+        if (an) an.value = data.agentName;
+      }
+      if (data.developedCount !== undefined) {
+        var dc = document.getElementById('f_developedCount');
+        if (dc) dc.value = data.developedCount;
+      }
+      if (data.factories && data.factories.length) {
+        data.factories.forEach(function(fi, i) {
+          var fnEl = document.getElementById('factory_name_' + i);
+          if (fnEl) fnEl.value = fi.name || '';
+        });
+      }
+      if (data.developedFactoriesCount !== undefined) {
+        var dfc = document.getElementById('f_developedFactoriesCount');
+        if (dfc) dfc.value = data.developedFactoriesCount;
+      }
+      break;
+  }
+}
+
+// ==================== 各角色表单 HTML ====================
+function formTechnician() {
+  return '<div class="form-group"><label class="form-label">技师姓名 *</label><input class="form-input" id="f_name" placeholder="例如：小芳"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话 *</label><input class="form-input" id="f_phone" placeholder="例如：13800138000"></div>' +
+    '<div class="form-group"><label class="form-label">服务地址 *</label><input class="form-input" id="f_address" placeholder="例如：南京市XX路XX号"></div>' +
+    '<div class="form-group"><label class="form-label">价格（元/次）*</label><input class="form-input" id="price" placeholder="例如：198" type="number"></div>' +
+    '<div class="form-group"><label class="form-label">服务项目（最多3项）</label>' +
+    '<input type="text" class="form-input" id="s1" placeholder="第1项，如：全身推拿" style="margin-bottom:8px;">' +
+    '<input type="text" class="form-input" id="s2" placeholder="第2项，如：肩颈按摩" style="margin-bottom:8px;">' +
+    '<input type="text" class="form-input" id="s3" placeholder="第3项，如：精油SPA"></div>';
+}
+
+function formVillageHead() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="如：江苏省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="如：苏州市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="如：吴中区"></div>' +
+    '<div class="form-group"><label class="form-label">村 *</label><input class="form-input" id="f_village" placeholder="如：XX村"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">村长姓名 *</label><input class="form-input" id="f_name" placeholder="村长姓名"></div>' +
+    '<div class="form-group"><label class="form-label">村长联系电话 *</label><input class="form-input" id="f_phone" placeholder="联系电话"></div>' +
+    '<div class="form-group"><label class="form-label">村庄介绍</label><textarea class="form-textarea" id="f_description" placeholder="介绍本村特色、产业、人口等"></textarea></div>';
+}
+
+function formVillager() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '<div class="form-group"><label class="form-label">村 *</label><input class="form-input" id="f_village" placeholder="村"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">村民姓名 *</label><input class="form-input" id="f_name" placeholder="姓名"></div>' +
+    '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">年龄</label><input class="form-input" id="f_age" placeholder="年龄" type="number"></div>' +
+    '<div class="form-group"><label class="form-label">性别</label><select class="form-select" id="f_gender"><option value="">请选择</option><option value="男">男</option><option value="女">女</option></select></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-group"><label class="form-label">村级代理名字</label><input class="form-input" id="f_villageAgent" placeholder="村级代理名字（选填）"></div>' +
+    '<div class="form-group"><label class="form-label">镇级代理名字</label><input class="form-input" id="f_townAgent" placeholder="镇级代理名字（选填）"></div>' +
+    '<div class="form-group"><label class="form-label">县级代理名字</label><input class="form-input" id="f_countyAgent" placeholder="县级代理名字（选填）"></div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🌾 农产品售卖</div>' +
+    '<div id="productsRows"></div>' +
+    '<button class="add-row-btn" onclick="addProductRow()">+ 添加农产品</button>' +
+    '</div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🪵 手工制作产品</div>' +
+    '<div id="craftsRows"></div>' +
+    '<button class="add-row-btn" onclick="addCraftRow()">+ 添加手工产品</button>' +
+    '</div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🔧 功能技能（可多选）</div>' +
+    '<div class="checkbox-group" id="skillsGroup">' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'木工\')"><input type="checkbox" id="skill_木工" value="木工">木工</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'瓦工\')"><input type="checkbox" id="skill_瓦工" value="瓦工">瓦工</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'水电工\')"><input type="checkbox" id="skill_水电工" value="水电工">水电工</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'油漆工\')"><input type="checkbox" id="skill_油漆工" value="油漆工">油漆工</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'焊工\')"><input type="checkbox" id="skill_焊工" value="焊工">焊工</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'厨师\')"><input type="checkbox" id="skill_厨师" value="厨师">厨师</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'驾驶员\')"><input type="checkbox" id="skill_驾驶员" value="驾驶员">驾驶员</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'缝纫\')"><input type="checkbox" id="skill_缝纫" value="缝纫">缝纫</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'理发\')"><input type="checkbox" id="skill_理发" value="理发">理发</div>' +
+    '<div class="checkbox-item" onclick="toggleCheck(this,\'skills\',\'其他\')"><input type="checkbox" id="skill_其他" value="其他">其他</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">💼 求职信息</div>' +
+    '<div class="radio-group">' +
+    '<label class="radio-item"><input type="radio" name="jobStatus" value="求职中"> 求职中</label>' +
+    '<label class="radio-item"><input type="radio" name="jobStatus" value="已就职"> 已就职</label>' +
+    '<label class="radio-item"><input type="radio" name="jobStatus" value="刚失业"> 刚失业</label>' +
+    '</div>' +
+    '</div>';
+}
+
+function formSupermarket() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '<div class="form-group"><label class="form-label">村</label><input class="form-input" id="f_village" placeholder="村"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">超市名称 *</label><input class="form-input" id="f_marketName" placeholder="如：XX超市"></div>' +
+    '<div class="form-group"><label class="form-label">老板名字 *</label><input class="form-input" id="f_name" placeholder="老板姓名"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🛒 超市商品需求</div>' +
+    '<div id="demandsRows"></div>' +
+    '<button class="add-row-btn" onclick="addDemandRow()">+ 添加需求</button>' +
+    '</div>';
+}
+
+function formMarket() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '<div class="form-group"><label class="form-label">镇</label><input class="form-input" id="f_town" placeholder="镇"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">农贸市场名称 *</label><input class="form-input" id="f_marketName" placeholder="如：XX农贸市场"></div>' +
+    '<div class="form-group"><label class="form-label">经营者姓名 *</label><input class="form-input" id="f_name" placeholder="经营者姓名"></div>' +
+    '<div class="form-group"><label class="form-label">门牌号</label><input class="form-input" id="f_houseNumber" placeholder="门牌号"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🥬 农产品需求</div>' +
+    '<textarea class="form-textarea" id="f_description" placeholder="如：大量收购土豆、白菜、萝卜等"></textarea>' +
+    '</div>';
+}
+
+function formFactory() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">工厂名称 *</label><input class="form-input" id="f_factoryName" placeholder="如：XX食品加工厂"></div>' +
+    '<div class="form-group"><label class="form-label">工厂产品</label><input class="form-input" id="f_product" placeholder="如：食品加工"></div>' +
+    '<div class="form-group"><label class="form-label">工厂地址</label><input class="form-input" id="f_address" placeholder="详细地址"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">💼 招工岗位薪资发布</div>' +
+    '<div id="jobsRows"></div>' +
+    '<button class="add-row-btn" onclick="addJobRow()">+ 添加岗位</button>' +
+    '</div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🌾 农产品需求发布</div>' +
+    '<textarea class="form-textarea" id="f_farmDemand" placeholder="如：需收购大量小麦、玉米等农产品"></textarea>' +
+    '</div>';
+}
+
+function formCustomerService() {
+  return '<div class="form-group"><label class="form-label">姓名 *</label><input class="form-input" id="f_name" placeholder="客服姓名"></div>' +
+    '<div class="form-group"><label class="form-label">年龄</label><input class="form-input" id="f_age" placeholder="年龄" type="number"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-group"><label class="form-label">服务区域（选填）</label><input class="form-input" id="f_serviceArea" placeholder="如：江苏省苏州市"></div>';
+}
+
+function formSalesManager() {
+  return '<div class="form-group"><label class="form-label">姓名 *</label><input class="form-input" id="f_name" placeholder="销售经理姓名"></div>' +
+    '<div class="form-group"><label class="form-label">年龄</label><input class="form-input" id="f_age" placeholder="年龄" type="number"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-group"><label class="form-label">销售区域（选填）</label><input class="form-input" id="f_serviceArea" placeholder="如：华东区域"></div>' +
+    '<div class="form-group"><label class="form-label">已对接代理名称（选填）</label><input class="form-input" id="f_linkedAgents" placeholder="已对接的代理名称"></div>';
+}
+
+function formVillageAgent() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '<div class="form-group"><label class="form-label">村 *</label><input class="form-input" id="f_village" placeholder="村"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">代理点名称 *</label><input class="form-input" id="f_agentName" placeholder="如：XX村代理点"></div>' +
+    '<div class="form-group"><label class="form-label">代理人名字 *</label><input class="form-input" id="f_name" placeholder="代理人姓名"></div>' +
+    '<div class="form-group"><label class="form-label">地址</label><input class="form-input" id="f_address" placeholder="详细地址"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-group"><label class="form-label">已发展人员数量</label><input class="form-input" id="f_developedCount" placeholder="数字" type="number"></div>';
+}
+
+function formTownAgent() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '<div class="form-group"><label class="form-label">镇 *</label><input class="form-input" id="f_town" placeholder="镇"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">代理点名称 *</label><input class="form-input" id="f_agentName" placeholder="如：XX镇代理点"></div>' +
+    '<div class="form-group"><label class="form-label">代理人名字 *</label><input class="form-input" id="f_name" placeholder="代理人姓名"></div>' +
+    '<div class="form-group"><label class="form-label">地址</label><input class="form-input" id="f_address" placeholder="详细地址"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-group"><label class="form-label">已发展人员数量</label><input class="form-input" id="f_developedCount" placeholder="数字" type="number"></div>' +
+    '<div class="form-group"><label class="form-label">已发展公司工厂数量</label><input class="form-input" id="f_developedFactoriesCount" placeholder="数量" type="number"></div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🏭 已发展公司工厂名称</div>' +
+    '<div id="factoriesRows"></div>' +
+    '<button class="add-row-btn" onclick="addFactoryRow()">+ 添加公司/工厂</button>' +
+    '</div>';
+}
+
+function formCountyAgent() {
+  return '<div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">省</label><input class="form-input" id="f_province" placeholder="省"></div>' +
+    '<div class="form-group"><label class="form-label">市</label><input class="form-input" id="f_city" placeholder="市"></div>' +
+    '</div><div class="inline-fields">' +
+    '<div class="form-group"><label class="form-label">县/区 *</label><input class="form-input" id="f_county" placeholder="县/区"></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">代理点名称 *</label><input class="form-input" id="f_agentName" placeholder="如：XX县代理中心"></div>' +
+    '<div class="form-group"><label class="form-label">代理人名字 *</label><input class="form-input" id="f_name" placeholder="代理人姓名"></div>' +
+    '<div class="form-group"><label class="form-label">地址</label><input class="form-input" id="f_address" placeholder="详细地址"></div>' +
+    '<div class="form-group"><label class="form-label">联系电话</label><input class="form-input" id="f_phone" placeholder="电话"></div>' +
+    '<div class="form-group"><label class="form-label">已发展人员数量</label><input class="form-input" id="f_developedCount" placeholder="数字" type="number"></div>' +
+    '<div class="form-group"><label class="form-label">已发展公司工厂数量</label><input class="form-input" id="f_developedFactoriesCount" placeholder="数量" type="number"></div>' +
+    '<div class="form-section">' +
+    '<div class="section-header">🏭 已发展公司工厂名称</div>' +
+    '<div id="factoriesRows"></div>' +
+    '<button class="add-row-btn" onclick="addFactoryRow()">+ 添加公司/工厂</button>' +
+    '</div>';
+}
+
+// ==================== 动态行管理 ====================
+function getVal(id) {
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function addProductRow() {
+  var box = document.getElementById('productsRows');
+  var idx = box.children.length;
+  var row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.id = 'prod_row_' + idx;
+  row.innerHTML = '<input class="form-input" id="prod_name_' + idx + '" placeholder="农产品名称（如：土豆）" style="flex:1;">' +
+    '<input class="form-input" id="prod_price_' + idx + '" placeholder="价格（如：2元/斤）" style="flex:1;">' +
+    '<button class="del-btn" onclick="removeRow(\'prod_row_' + idx + '\')">×</button>';
+  box.appendChild(row);
+}
+
+function addCraftRow() {
+  var box = document.getElementById('craftsRows');
+  var idx = box.children.length;
+  var row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.id = 'craft_row_' + idx;
+  row.innerHTML = '<input class="form-input" id="craft_name_' + idx + '" placeholder="产品名称（如：竹篮）" style="flex:1;">' +
+    '<input class="form-input" id="craft_price_' + idx + '" placeholder="价格（如：50元/个）" style="flex:1;">' +
+    '<button class="del-btn" onclick="removeRow(\'craft_row_' + idx + '\')">×</button>';
+  box.appendChild(row);
+}
+
+function addDemandRow() {
+  var box = document.getElementById('demandsRows');
+  var idx = box.children.length;
+  var row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.id = 'demand_row_' + idx;
+  row.innerHTML = '<textarea class="form-textarea" id="demand_' + idx + '" placeholder="商品需求描述" style="flex:1;min-height:50px;"></textarea>' +
+    '<button class="del-btn" onclick="removeRow(\'demand_row_' + idx + '\')">×</button>';
+  box.appendChild(row);
+}
+
+function addJobRow() {
+  var box = document.getElementById('jobsRows');
+  var idx = box.children.length;
+  var row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.id = 'job_row_' + idx;
+  row.innerHTML = '<input class="form-input" id="job_title_' + idx + '" placeholder="岗位名称（如：车间工人）" style="flex:1;">' +
+    '<input class="form-input" id="job_salary_' + idx + '" placeholder="薪资（如：5000-8000元/月）" style="flex:1;">' +
+    '<button class="del-btn" onclick="removeRow(\'job_row_' + idx + '\')">×</button>';
+  box.appendChild(row);
+}
+
+function addFactoryRow() {
+  var box = document.getElementById('factoriesRows');
+  var idx = box.children.length;
+  var row = document.createElement('div');
+  row.className = 'dynamic-row';
+  row.id = 'factory_row_' + idx;
+  row.innerHTML = '<input class="form-input" id="factory_name_' + idx + '" placeholder="公司/工厂名称" style="flex:1;">' +
+    '<button class="del-btn" onclick="removeRow(\'factory_row_' + idx + '\')">×</button>';
+  box.appendChild(row);
+}
+
+function removeRow(id) {
+  var el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function initDynamicRows() {
+  // 初始化一行空行供用户添加
+  setTimeout(function() {
+    if (currentRole === 'villager') {
+      if (!document.getElementById('prod_row_0')) addProductRow();
+      if (!document.getElementById('craft_row_0')) addCraftRow();
+    } else if (currentRole === 'supermarket') {
+      if (!document.getElementById('demand_row_0')) addDemandRow();
+    } else if (currentRole === 'factory') {
+      if (!document.getElementById('job_row_0')) addJobRow();
+    } else if (currentRole === 'town_agent' || currentRole === 'county_agent') {
+      if (!document.getElementById('factory_row_0')) addFactoryRow();
+    }
+  }, 0);
+}
+
+function toggleCheck(item, group, val) {
+  var cb = item.querySelector('input');
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  if (cb.checked) {
+    item.classList.add('checked');
+  } else {
+    item.classList.remove('checked');
+  }
+}
+
+function getCheckedSkills() {
+  var skills = [];
+  var cbs = document.querySelectorAll('#skillsGroup input[type="checkbox"]');
+  for (var i = 0; i < cbs.length; i++) {
+    if (cbs[i].checked) skills.push(cbs[i].value);
+  }
+  return skills;
+}
+
+// ==================== 提交 ====================
+function submitOrUpdate() {
+  if (!user) { location.href = 'login.html?v=20260916'; return; }
+  if (pendingUploads > 0) { toast('图片还在上传中，请稍候…'); return; }
+  var cfg = ROLE_CONFIG[currentRole];
+  if (!cfg) return;
+
   var btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.textContent = '⏳ 提交中...';
 
-  var entry = {
-    id: myTech ? myTech.id : 't_' + JB.genId(),
-    accountId: user.id,
-    account: user.account,
-    name: name,
-    phone: phone,
-    address: address,
-    price: price,
-    services: svcs,
-    photos: photos,
-    status: '待审核',
-    submitTime: myTech ? myTech.submitTime : Date.now(),
-    updateTime: Date.now()
-  };
+  // 收集数据
+  var entry = collectFormData(currentRole);
+  entry.id = myRecord ? myRecord.id : (cfg.prefix || 'r_') + JB.genId();
+  entry.accountId = user.id;
+  entry.account = user.account;
+  entry.role = currentRole;
+  entry.photos = photos.slice();
+  entry.status = '待审核';
+  entry.submitTime = myRecord ? myRecord.submitTime : Date.now();
+  entry.updateTime = Date.now();
 
-  // 从云端读取最新列表，再更新
-  JB.get('technicians', function(list) {
+  var binKey = cfg.bin;
+
+  // 检查是否已有已通过记录（不能重复提交覆盖审核结果）
+  JB.get(binKey, function(list) {
     if (!Array.isArray(list)) list = [];
     var found = false;
     for (var i = 0; i < list.length; i++) {
-      if (list[i].accountId === user.id) { list[i] = entry; found = true; break; }
+      if (list[i].accountId === user.id) {
+        // 如果已有一条且已通过，不允许用待审核覆盖
+        if (list[i].status === '已通过' && list[i].id !== entry.id) {
+          btn.disabled = false;
+          btn.textContent = '该角色已有审核通过记录';
+          toast('该角色资料已审核通过，无需重复提交 ✓');
+          return;
+        }
+        list[i] = entry;
+        found = true;
+        break;
+      }
     }
     if (!found) list.unshift(entry);
-    // 【修复】防覆盖：如果该账号已有已通过记录，不再用待审核覆盖管理员审核结果
-    var _ex = list.find(function(t){ return t.accountId === user.id && t.id !== entry.id && t.status === '已通过'; });
-    if (_ex) { btn.disabled = false; btn.textContent = '资料已审核通过，无需重复提交'; toast('当前资料已审核通过 √'); return; }
-        JB.put('technicians', list, function(ok) {
+
+    JB.put(binKey, list, function(ok) {
       btn.disabled = false;
       if (ok) {
-        myTech = entry;
+        myRecord = entry;
         toast('已提交，等待审核 ✓');
         btn.textContent = '修改资料并重新提交';
         renderStatus();
       } else {
-        // 【修复P1-5】失败时给出明确提示，避免用户以为成功了
-        toast('网络异常，数据已暂存本地，网络恢复后将自动同步');
+        toast('网络异常，数据已暂存本地');
         btn.textContent = '提交失败，点此重试';
-        myTech = entry;
+        myRecord = entry;
       }
     });
   });
 }
 
+function collectFormData(role) {
+  var d = {};
+  // 通用字段
+  ['province', 'city', 'county', 'village', 'town', 'address', 'description', 'age', 'gender'].forEach(function(f) {
+    var el = document.getElementById('f_' + f);
+    if (el) d[f] = el.value.trim();
+  });
+  var nameEl = document.getElementById('f_name');
+  if (nameEl) d.name = nameEl.value.trim();
+  var phoneEl = document.getElementById('f_phone');
+  if (phoneEl) d.phone = phoneEl.value.trim();
+
+  switch (role) {
+    case 'technician':
+      d.price = getVal('price');
+      var s1 = getVal('s1'), s2 = getVal('s2'), s3 = getVal('s3');
+      d.services = [s1, s2, s3].filter(function(v) { return v; });
+      break;
+    case 'villager':
+      d.products = collectDynamicRows('productsRows', 'prod_name_', 'prod_price_');
+      d.crafts = collectDynamicRows('craftsRows', 'craft_name_', 'craft_price_');
+      d.skills = getCheckedSkills();
+      var radios = document.getElementsByName('jobStatus');
+      for (var i = 0; i < radios.length; i++) {
+        if (radios[i].checked) { d.jobStatus = radios[i].value; break; }
+      }
+      d.villageAgent = getVal('f_villageAgent');
+      d.townAgent = getVal('f_townAgent');
+      d.countyAgent = getVal('f_countyAgent');
+      break;
+    case 'supermarket':
+      d.marketName = getVal('f_marketName');
+      d.demands = collectDemandRows();
+      break;
+    case 'market':
+      d.marketName = getVal('f_marketName');
+      d.houseNumber = getVal('f_houseNumber');
+      d.demands = [getVal('f_description')];
+      break;
+    case 'factory':
+      d.factoryName = getVal('f_factoryName');
+      d.product = getVal('f_product');
+      d.farmDemand = getVal('f_farmDemand');
+      d.jobs = collectDynamicRows2('jobsRows', 'job_title_', 'job_salary_');
+      break;
+    case 'customer_service':
+      d.serviceArea = getVal('f_serviceArea');
+      break;
+    case 'sales_manager':
+      d.serviceArea = getVal('f_serviceArea');
+      d.linkedAgents = getVal('f_linkedAgents');
+      break;
+    case 'village_agent':
+      d.agentName = getVal('f_agentName');
+      d.developedCount = parseInt(getVal('f_developedCount')) || 0;
+      break;
+    case 'town_agent':
+      d.agentName = getVal('f_agentName');
+      d.developedCount = parseInt(getVal('f_developedCount')) || 0;
+      d.developedFactoriesCount = parseInt(getVal('f_developedFactoriesCount')) || 0;
+      d.factories = collectFactoryRows();
+      break;
+    case 'county_agent':
+      d.agentName = getVal('f_agentName');
+      d.developedCount = parseInt(getVal('f_developedCount')) || 0;
+      d.developedFactoriesCount = parseInt(getVal('f_developedFactoriesCount')) || 0;
+      d.factories = collectFactoryRows();
+      break;
+  }
+  return d;
+}
+
+function collectDynamicRows(boxId, namePrefix, pricePrefix) {
+  var box = document.getElementById(boxId);
+  if (!box) return [];
+  var result = [];
+  var rows = box.children;
+  for (var i = 0; i < rows.length; i++) {
+    var nameEl = document.getElementById(namePrefix + i);
+    var priceEl = document.getElementById(pricePrefix + i);
+    if (nameEl && nameEl.value.trim()) {
+      result.push({ name: nameEl.value.trim(), price: priceEl ? priceEl.value.trim() : '' });
+    }
+  }
+  return result;
+}
+
+function collectDynamicRows2(boxId, titlePrefix, salaryPrefix) {
+  var box = document.getElementById(boxId);
+  if (!box) return [];
+  var result = [];
+  var rows = box.children;
+  for (var i = 0; i < rows.length; i++) {
+    var titleEl = document.getElementById(titlePrefix + i);
+    var salEl = document.getElementById(salaryPrefix + i);
+    if (titleEl && titleEl.value.trim()) {
+      result.push({ title: titleEl.value.trim(), salary: salEl ? salEl.value.trim() : '' });
+    }
+  }
+  return result;
+}
+
+function collectDemandRows() {
+  var box = document.getElementById('demandsRows');
+  if (!box) return [];
+  var result = [];
+  var rows = box.children;
+  for (var i = 0; i < rows.length; i++) {
+    var el = document.getElementById('demand_' + i);
+    if (el && el.value.trim()) result.push(el.value.trim());
+  }
+  return result;
+}
+
+function collectFactoryRows() {
+  var box = document.getElementById('factoriesRows');
+  if (!box) return [];
+  var result = [];
+  var rows = box.children;
+  for (var i = 0; i < rows.length; i++) {
+    var el = document.getElementById('factory_name_' + i);
+    if (el && el.value.trim()) result.push({ name: el.value.trim() });
+  }
+  return result;
+}
+
+// ==================== 初始化 ====================
 function initPage() {
   user = JB.getCurrentUser();
   if (!user) {
@@ -501,28 +1261,41 @@ function initPage() {
   document.getElementById('loggedOut').style.display = 'none';
   document.getElementById('loggedIn').style.display = 'block';
 
-  JB.get('technicians', function(list) {
+  // 当前角色：优先从 accounts 的 role 字段
+  currentRole = user.role || 'technician';
+  loadMyRecord();
+}
+
+function loadMyRecord() {
+  var cfg = ROLE_CONFIG[currentRole];
+  if (!cfg) { renderProfilePage(); return; }
+  var binKey = cfg.bin;
+  JB.get(binKey, function(list) {
     if (!Array.isArray(list)) list = [];
-    myTech = null;
+    myRecord = null;
     for (var i = 0; i < list.length; i++) {
-      if (list[i].accountId === user.id) { myTech = list[i]; break; }
+      if (list[i].accountId === user.id) {
+        // 优先取最新的（按 updateTime）
+        if (!myRecord || (list[i].updateTime && list[i].updateTime > myRecord.updateTime)) {
+          myRecord = list[i];
+        }
+      }
     }
-    renderStatus();
+    renderProfilePage();
   });
 }
 
 initPage();
-</script>
+  </script>
 
 <script>
 // 注册 Service Worker (PWA)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=20260824')
+  navigator.serviceWorker.register('sw.js?v=20260916')
     .then(function(reg) { console.log('[PWA] SW 注册成功:', reg.scope); })
     .catch(function(err) { console.log('[PWA] SW 注册失败:', err); });
 }
 </script>
-
 <script src="cloud-config.js"></script>
 <script src="cloud-api.js"></script>
 </body>
