@@ -1,4 +1,4 @@
-# 百合上门 - 本地数据库版
+# 百合网络 - 本地数据库版
 
 ## 运行方式
 
@@ -11,6 +11,16 @@
 所有数据存在 `data/` 目录下的 JSON 文件：
 - accounts.json 账号
 - technicians.json 技师资料
+- village_heads.json 村长资料
+- villagers.json 村民资料
+- supermarkets.json 超市资料
+- markets.json 农贸市场资料
+- factories.json 企业工厂资料
+- customer_service.json 客服资料
+- sales_managers.json 销售经理资料
+- village_agents.json 村级代理资料
+- town_agents.json 镇级代理资料
+- county_agents.json 县级代理资料
 - notices.json 公告
 - audit_log.json 审核日志
 
@@ -27,7 +37,7 @@
 
 ## 部署到新仓库（用户验证后）
 
-验证无误后，把整个 `百合上门` 文件夹上传到新 GitHub 仓库，开启 Pages 即可。
+验证无误后，把整个 `百合网络` 文件夹上传到新 GitHub 仓库，开启 Pages 即可。
 注意：server.js 需在能运行 Node.js 的环境启动（如本机、或支持 Node 的托管）。
 纯静态托管（如 GitHub Pages）只能跑前端，后端 server.js 需另行部署 Node 服务。
 
@@ -36,18 +46,33 @@
 
 - **启动服务.bat**：一键启动服务器并自动打开浏览器（若已在运行则直接开浏览器）
 - **设置开机自启.bat**：在「启动」文件夹创建快捷方式，下次登录 Windows 自动后台启动服务器
-- **取消开机自启**：手动删除 `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\百合上门服务器.lnk`
+- **取消开机自启**：手动删除 `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\百合网络服务器.lnk`
 - **停止服务**：关闭启动服务.bat 窗口，或在任务管理器结束 node.exe
 - 服务器日志写在 `data/server.log`，便于排查
 - 端口被占用时（如开机自启已在跑）手动启动会自动退出，不会冲突
 
 ## 文件说明
 
-- index.html 首页（技师展示 + 搜索）
-- register.html 登录页
-- register_v2.html 注册页（技师填资料）
-- profile.html 我的资料/修改
-- admin.html 管理员后台（审核技师）
-- technician-detail.html 技师详情
+- index.html 首页（多角色展示 + 搜索）
+- login.html 登录页
+- register_v2.html 注册页
+- profile.html 个人中心（11种角色资料）
+- admin.html 管理员后台（审核所有角色）
+- technician-detail.html 详情页（支持所有角色）
 - server.js 本地数据库服务器（Node.js）
 - local-api.js 前端适配器（连接本机服务器）
+
+## 角色说明
+
+平台支持 11 种角色：
+1. 技师 💆
+2. 村长 🏘️
+3. 村民 🧑‍🌾
+4. 超市 🏪
+5. 农贸市场 🥬
+6. 企业工厂 🏭
+7. 客服 🎧
+8. 销售经理 📊
+9. 村级代理 📍
+10. 镇级代理 📌
+11. 县级代理 🗺️
