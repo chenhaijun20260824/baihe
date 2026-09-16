@@ -5,13 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script>
 /*
- * rose-sync.js — 本地优先同步核心库（取代 jsonbin.js）
- * 架构：本地优先（localStorage 永远可用），可选接入轻量后端做多端同步。
- * 默认不接任何云端：零额度、零网络依赖、不会弹"密钥失败"红条。
- * 多端同步：给 window.RoseSyncAdapter 赋值适配器即可（见 local-api.js 示例）。
+ * rose-sync.js — 本地优先同步核心库
  */
 var JB = {
-  BINS: { accounts: 'accounts', technicians: 'technicians', notices: 'notices', audit_log: 'audit_log' },
+  BINS: {
+    accounts: 'accounts',
+    technicians: 'technicians',
+    notices: 'notices',
+    audit_log: 'audit_log',
+    village_heads: 'village_heads',
+    villagers: 'villagers',
+    supermarkets: 'supermarkets',
+    markets: 'markets',
+    factories: 'factories',
+    customer_service: 'customer_service',
+    sales_managers: 'sales_managers',
+    village_agents: 'village_agents',
+    town_agents: 'town_agents',
+    county_agents: 'county_agents'
+  },
   _adapterNow: function () {
     try { return (typeof window !== 'undefined' && window.RoseSyncAdapter) ? window.RoseSyncAdapter : null; }
     catch (e) { return null; }
@@ -138,11 +150,7 @@ var JB = {
     try { localStorage.setItem(this._deletedKey(binKey), JSON.stringify(d)); } catch (e) {}
   }
 };
-
-// 页面加载后如有适配器则静默同步；纯本地模式下直接 no-op（不联网、不弹窗）
 setTimeout(function () { try { JB.syncAll(); } catch (e) {} }, 800);
-
-// 全局错误捕获（保留，便于排查）
 window.onerror = function (m, s, l, c) {
   try {
     var d = document.createElement("div");
@@ -152,15 +160,9 @@ window.onerror = function (m, s, l, c) {
   } catch (e) {}
   return false;
 };
+  </script>
 
-/*
- * 可选多端同步：在引入本文件之后、页面逻辑之前设置 window.RoseSyncAdapter 即可，
- * 例如 local-api.js。本地永远优先，后端不可用也不影响本机数据。
- */
-</script>
-
-
-  <title>技师详情 - 百合上门</title>
+  <title>详情 - 百合网络</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #FFF5F7; color: #333; min-height: 100vh; padding-bottom: 70px; }
@@ -170,18 +172,26 @@ window.onerror = function (m, s, l, c) {
     .gallery { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; }
     .gallery img { width: 100%; max-width: 280px; height: 220px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
     .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }
-    .name { font-size: 20px; font-weight: bold; color: #C2185B; }
+    .name { font-size: 20px; font-weight: bold; color: #C2185B; display: flex; align-items: center; gap: 8px; }
+    .role-badge { background: #fce4ec; color: #C2185B; font-size: 12px; padding: 2px 8px; border-radius: 20px; font-weight: normal; }
     .field { font-size: 14px; margin: 10px 0; line-height: 1.6; }
     .field b { color: #C2185B; }
     .price-big { font-size: 22px; font-weight: bold; color: #C2185B; }
     .services-box { background: #FFF3F6; border-radius: 10px; padding: 12px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
     .call-bar { position: fixed; bottom: 0; left: 0; right: 0; padding: 12px 16px; background: #fff; border-top: 1px solid #eee; }
     .call-bar a { display: block; text-align: center; padding: 13px; background: linear-gradient(135deg,#C2185B,#E91E63); color: #fff; border-radius: 10px; font-size: 16px; font-weight: bold; text-decoration: none; }
+    .call-bar a.tel-link { background: #2E7D32; }
     .empty { text-align: center; color: #bbb; padding: 40px; }
     .loading { text-align: center; color: #bbb; padding: 40px; }
     .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.8); color: #fff; padding: 12px 28px; border-radius: 10px; font-size: 14px; z-index: 99999; pointer-events: none; white-space: nowrap; }
+    .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .tag { background: #fce4ec; color: #C2185B; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+    .section-label { font-size: 13px; color: #999; margin: 12px 0 6px; }
+    .detail-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+    .detail-row .label { font-size: 13px; color: #C2185B; min-width: 80px; font-weight: 500; }
+    .detail-row .value { font-size: 14px; color: #333; flex: 1; }
   </style>
-  <link rel="manifest" href="manifest.json?v=20260817">
+  <link rel="manifest" href="manifest.json?v=20260916">
   <meta name="theme-color" content="#C2185B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -196,11 +206,25 @@ window.imgErr = function(img) {
 </script>
 </head>
 <body>
-  <div class="header"><a class="back" href="index.html?v=20260817">←</a> 技师详情</div>
+  <div class="header"><a class="back" href="index.html?v=20260916">←</a> <span id="headerTitle">详情</span></div>
   <div class="container" id="content"><div class="loading">加载中...</div></div>
   <div class="call-bar" id="callBar" style="display:none;"></div>
 
 <script>
+var ROLE_CONFIG = {
+  technician: { name: '技师', icon: '💆', bin: 'technicians' },
+  village_head: { name: '村长', icon: '🏘️', bin: 'village_heads' },
+  villager: { name: '村民', icon: '🧑‍🌾', bin: 'villagers' },
+  supermarket: { name: '超市', icon: '🏪', bin: 'supermarkets' },
+  market: { name: '农贸市场', icon: '🥬', bin: 'markets' },
+  factory: { name: '企业工厂', icon: '🏭', bin: 'factories' },
+  customer_service: { name: '客服', icon: '🎧', bin: 'customer_service' },
+  sales_manager: { name: '销售经理', icon: '📊', bin: 'sales_managers' },
+  village_agent: { name: '村级代理', icon: '📍', bin: 'village_agents' },
+  town_agent: { name: '镇级代理', icon: '📌', bin: 'town_agents' },
+  county_agent: { name: '县级代理', icon: '🗺️', bin: 'county_agents' }
+};
+
 function toast(msg) {
   var el = document.createElement('div');
   el.className = 'toast';
@@ -220,71 +244,199 @@ function getParam(name) {
   return m ? decodeURIComponent(m[1]) : '';
 }
 
-function render(t) {
-  var imgs = (t.photos || []).map(function(p) {
-    return '<img src="' + escapeHtml(p) + '" onerror="imgErr(this)">';
-  }).join('') || '<div style="color:#bbb;padding:40px;text-align:center;">暂无照片</div>';
-
-  var servicesText = t.services || '暂无';
-  document.getElementById('content').innerHTML =
-    '<div class="gallery">' + imgs + '</div>' +
-    '<div class="card">' +
-      '<div class="name">' + escapeHtml(t.name) + '</div>' +
-      '<div class="field"><b>服务价格：</b><span class="price-big">¥' + escapeHtml(t.price) + '</span> / 次</div>' +
-      '<div class="field"><b>联系电话：</b>' + escapeHtml(t.phone) + '</div>' +
-      '<div class="field"><b>服务地址：</b>' + escapeHtml(t.address || '未填') + '</div>' +
-      '<div class="field"><b>服务项目：</b></div>' +
-      '<div class="services-box">' + escapeHtml(servicesText) + '</div>' +
-    '</div>';
-  document.getElementById('callBar').style.display = 'block';
-  document.getElementById('callBar').innerHTML =
-    '<a href="tel:' + escapeHtml(t.phone) + '">📞 立即预约 ' + escapeHtml(t.phone) + '</a>';
+function getRoleIcon(role) {
+  var cfg = ROLE_CONFIG[role];
+  return cfg ? cfg.icon : '👤';
 }
 
-function matchTech(t, id) {
-  return t && (t.id === id || t.accountId === id || t.account === id);
+function getRoleName(role) {
+  var cfg = ROLE_CONFIG[role];
+  return cfg ? cfg.name : role;
+}
+
+function getItemTitle(item) {
+  var r = item.role || 'technician';
+  if (r === 'technician') return item.name || '技师';
+  if (r === 'village_head') return (item.name || '村长') + '（村长）';
+  if (r === 'villager') return item.name || '村民';
+  if (r === 'supermarket') return item.marketName || item.name || '超市';
+  if (r === 'market') return item.marketName || item.name || '农贸市场';
+  if (r === 'factory') return item.factoryName || item.name || '企业工厂';
+  if (r === 'customer_service') return (item.name || '客服') + '（客服）';
+  if (r === 'sales_manager') return (item.name || '销售经理') + '（销售经理）';
+  if (r === 'village_agent') return item.agentName || item.name || '村级代理';
+  if (r === 'town_agent') return item.agentName || item.name || '镇级代理';
+  if (r === 'county_agent') return item.agentName || item.name || '县级代理';
+  return item.name || r;
+}
+
+function getLocation(item) {
+  var parts = [];
+  if (item.province) parts.push(item.province);
+  if (item.city) parts.push(item.city);
+  if (item.county) parts.push(item.county);
+  if (item.town) parts.push(item.town + '镇');
+  if (item.village) parts.push(item.village + '村');
+  if (item.address) parts.push(item.address);
+  return parts.join(' ') || '未填地址';
+}
+
+function render(item) {
+  if (!item) return;
+  var r = item.role || 'technician';
+  var cfg = ROLE_CONFIG[r];
+  var title = getItemTitle(item);
+
+  document.getElementById('headerTitle').textContent = getRoleName(r) + '详情';
+
+  // 相册
+  var imgs = '';
+  if (item.photos && item.photos.length > 0) {
+    for (var pi = 0; pi < item.photos.length; pi++) {
+      imgs += '<img src="' + escapeHtml(item.photos[pi]) + '" onerror="imgErr(this)">';
+    }
+  } else {
+    imgs = '<div style="height:180px;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:60px;">' + getRoleIcon(r) + '</div>';
+  }
+
+  var html = '<div class="gallery">' + imgs + '</div>';
+
+  html += '<div class="card">';
+  html += '<div class="name">' + escapeHtml(title) + ' <span class="role-badge">' + getRoleIcon(r) + ' ' + getRoleName(r) + '</span></div>';
+
+  // 通用字段
+  if (item.phone) {
+    html += '<div class="field"><b>联系电话：</b><a href="tel:' + escapeHtml(item.phone) + '" style="color:#2E7D32;text-decoration:none;">' + escapeHtml(item.phone) + ' 📞</a></div>';
+  }
+  html += '<div class="field"><b>所在地区：</b>' + escapeHtml(getLocation(item)) + '</div>';
+
+  // 角色特定字段
+  if (r === 'technician') {
+    if (item.price) html += '<div class="field"><b>服务价格：</b><span class="price-big">¥' + escapeHtml(item.price) + '</span> / 次</div>';
+    if (item.services && item.services.length) {
+      html += '<div class="field"><b>服务项目：</b></div><div class="services-box">' + escapeHtml(item.services.filter(Boolean).join('、')) + '</div>';
+    }
+  } else if (r === 'village_head') {
+    if (item.description) html += '<div class="field"><b>村庄介绍：</b><div style="background:#fff3f6;padding:10px;border-radius:8px;margin-top:6px;white-space:pre-wrap;line-height:1.6;">' + escapeHtml(item.description) + '</div></div>';
+  } else if (r === 'villager') {
+    if (item.age) html += '<div class="field"><b>年龄：</b>' + escapeHtml(item.age) + '岁</div>';
+    if (item.gender) html += '<div class="field"><b>性别：</b>' + escapeHtml(item.gender) + '</div>';
+    if (item.products && item.products.length) {
+      html += '<div class="field"><b>农产品售卖：</b><div class="tag-list">';
+      item.products.forEach(function(p) { html += '<span class="tag">🌾 ' + escapeHtml(p.name || '') + (p.price ? ' ¥' + escapeHtml(p.price) : '') + '</span>'; });
+      html += '</div></div>';
+    }
+    if (item.crafts && item.crafts.length) {
+      html += '<div class="field"><b>手工制作：</b><div class="tag-list">';
+      item.crafts.forEach(function(c) { html += '<span class="tag">🪵 ' + escapeHtml(c.name || '') + (c.price ? ' ¥' + escapeHtml(c.price) : '') + '</span>'; });
+      html += '</div></div>';
+    }
+    if (item.skills && item.skills.length) {
+      html += '<div class="field"><b>功能技能：</b><div class="tag-list">';
+      item.skills.forEach(function(s) { html += '<span class="tag">' + escapeHtml(s) + '</span>'; });
+      html += '</div></div>';
+    }
+    if (item.jobStatus) html += '<div class="field"><b>求职状态：</b>' + escapeHtml(item.jobStatus) + '</div>';
+  } else if (r === 'supermarket') {
+    if (item.demands && item.demands.length) {
+      html += '<div class="field"><b>商品需求：</b>';
+      item.demands.forEach(function(d, i) { html += '<div style="margin-top:4px;padding:8px;background:#f9f9f9;border-radius:6px;white-space:pre-wrap;">' + escapeHtml(d) + '</div>'; });
+      html += '</div>';
+    }
+  } else if (r === 'market') {
+    if (item.houseNumber) html += '<div class="field"><b>门牌号：</b>' + escapeHtml(item.houseNumber) + '</div>';
+    if (item.description) html += '<div class="field"><b>农产品需求：</b><div style="background:#fff3f6;padding:10px;border-radius:8px;margin-top:6px;white-space:pre-wrap;">' + escapeHtml(item.description) + '</div></div>';
+  } else if (r === 'factory') {
+    if (item.factoryName) html += '<div class="field"><b>工厂名称：</b>' + escapeHtml(item.factoryName) + '</div>';
+    if (item.product) html += '<div class="field"><b>产品方向：</b>' + escapeHtml(item.product) + '</div>';
+    if (item.jobs && item.jobs.length) {
+      html += '<div class="field"><b>招工岗位：</b>';
+      item.jobs.forEach(function(j) { html += '<div style="margin-top:4px;padding:8px;background:#f0f9f0;border-radius:6px;">' + escapeHtml(j.title || '') + (j.salary ? ' → ' + escapeHtml(j.salary) : '') + '</div>'; });
+      html += '</div>';
+    }
+    if (item.farmDemand) html += '<div class="field"><b>农产品需求：</b><div style="background:#fff3f6;padding:10px;border-radius:8px;margin-top:6px;white-space:pre-wrap;">' + escapeHtml(item.farmDemand) + '</div></div>';
+  } else if (r === 'customer_service') {
+    if (item.age) html += '<div class="field"><b>年龄：</b>' + escapeHtml(item.age) + '岁</div>';
+    if (item.serviceArea) html += '<div class="field"><b>服务区域：</b>' + escapeHtml(item.serviceArea) + '</div>';
+  } else if (r === 'sales_manager') {
+    if (item.age) html += '<div class="field"><b>年龄：</b>' + escapeHtml(item.age) + '岁</div>';
+    if (item.serviceArea) html += '<div class="field"><b>销售区域：</b>' + escapeHtml(item.serviceArea) + '</div>';
+    if (item.linkedAgents) html += '<div class="field"><b>已对接代理：</b>' + escapeHtml(item.linkedAgents) + '</div>';
+  } else if (r === 'village_agent') {
+    if (item.developedCount !== undefined) html += '<div class="field"><b>已发展人员：</b>' + item.developedCount + ' 人</div>';
+  } else if (r === 'town_agent' || r === 'county_agent') {
+    if (item.developedCount !== undefined) html += '<div class="field"><b>已发展人员：</b>' + item.developedCount + ' 人</div>';
+    if (item.developedFactoriesCount !== undefined) html += '<div class="field"><b>已发展公司工厂：</b>' + item.developedFactoriesCount + ' 家</div>';
+    if (item.factories && item.factories.length) {
+      html += '<div class="field"><b>公司/工厂列表：</b><div class="tag-list">';
+      item.factories.forEach(function(fi) { html += '<span class="tag">' + escapeHtml(fi.name || '') + '</span>'; });
+      html += '</div></div>';
+    }
+  }
+
+  html += '</div>';
+
+  document.getElementById('content').innerHTML = html;
+
+  // 底部拨打电话
+  var callBar = document.getElementById('callBar');
+  if (item.phone) {
+    callBar.style.display = 'block';
+    callBar.innerHTML = '<a href="tel:' + escapeHtml(item.phone) + '" class="tel-link">📞 拨打电话 ' + escapeHtml(item.phone) + '</a>';
+  } else {
+    callBar.style.display = 'none';
+  }
+}
+
+function matchItem(item, id) {
+  return item && (item.id === id || item.accountId === id || item.account === id);
 }
 
 (function() {
+  var type = getParam('type') || 'technician';
   var id = getParam('id') || getParam('accountId') || getParam('account');
+
   if (!id) {
-    // 未直接传入 ID：列出全部已通过技师，供点击进入（避免“缺少技师ID”死路）
     document.getElementById('content').innerHTML = '<div class="loading">加载中...</div>';
-    JB.get('technicians', function(list) {
+    var binKey = ROLE_CONFIG[type] ? ROLE_CONFIG[type].bin : 'technicians';
+    JB.get(binKey, function(list) {
       if (!Array.isArray(list)) list = [];
       var passed = list.filter(function(t) { return t && t.status === '已通过'; });
       if (passed.length === 0) {
-        document.getElementById('content').innerHTML = '<div class="empty">暂无技师数据<br><br><a href="index.html" style="color:#C2185B;text-decoration:none;">← 返回首页</a></div>';
+        document.getElementById('content').innerHTML = '<div class="empty">暂无数据<br><br><a href="index.html" style="color:#C2185B;text-decoration:none;">← 返回首页</a></div>';
         return;
       }
-      var html = passed.map(function(t) {
+      var html = '<div style="padding:10px 0 4px;color:#C2185B;font-weight:bold;margin-bottom:8px;">请选择：</div>';
+      passed.forEach(function(t) {
         var key = t.id || t.accountId || t.account || '';
-        return '<div class="card" style="cursor:pointer;" onclick="location.href=\'technician-detail.html?v=20260817&id=' + encodeURIComponent(key) + '\'">'
-          + '<div class="name">' + escapeHtml(t.name) + '</div>'
-          + '<div class="field"><b>联系电话：</b>' + escapeHtml(t.phone) + '</div>'
-          + '<div class="field"><b>服务地址：</b>' + escapeHtml(t.address || '未填') + '</div>'
-          + '</div>';
-      }).join('');
-      document.getElementById('content').innerHTML = '<div style="padding:10px 0 4px;color:#C2185B;font-weight:bold;">请选择技师：</div>' + html;
+        var r = t.role || type;
+        html += '<div class="card" style="cursor:pointer;" onclick="location.href=\'technician-detail.html?v=20260916&type=' + encodeURIComponent(r) + '&id=' + encodeURIComponent(key) + '\'">' +
+          '<div style="font-weight:bold;color:#C2185B;font-size:15px;">' + getRoleIcon(r) + ' ' + escapeHtml(getItemTitle(t)) + ' <span class="role-badge">' + getRoleName(r) + '</span></div>' +
+          (t.phone ? '<div style="font-size:13px;color:#888;margin-top:4px;">📞 ' + escapeHtml(t.phone) + '</div>' : '') +
+          '<div style="font-size:13px;color:#888;">📍 ' + escapeHtml(getLocation(t)) + '</div>' +
+          '</div>';
+      });
+      document.getElementById('content').innerHTML = '<div class="card" style="background:#fff3f6;margin-bottom:16px;padding:12px;font-size:13px;color:#C2185B;">请选择要查看的 ' + getRoleName(type) + '（共 ' + passed.length + ' 条）</div>' + html;
     });
     return;
   }
 
-  // 先从本地快速展示，再从云端更新
-  var local = JB._getLocal('technicians');
-  var t = null;
+  // 先本地快速展示
+  var binKey = ROLE_CONFIG[type] ? ROLE_CONFIG[type].bin : 'technicians';
+  var local = JB._getLocal(binKey);
+  var found = null;
   for (var i = 0; i < local.length; i++) {
-    if (matchTech(local[i], id) && local[i].status === '已通过') { t = local[i]; break; }
+    if (matchItem(local[i], id) && local[i].status === '已通过') { found = local[i]; break; }
   }
-  if (t) render(t);
+  if (found) render(found);
 
-  // 从云端拉取最新数据，有差异则更新本地并刷新显示
-  JB.get('technicians', function(list) {
+  // 从云端拉取更新
+  JB.get(binKey, function(list) {
     if (!Array.isArray(list)) return;
-    for (var i = 0; i < list.length; i++) {
-      if (matchTech(list[i], id) && list[i].status === '已通过') {
-        var cloud = list[i];
-        if (!t || JSON.stringify(t) !== JSON.stringify(cloud)) {
+    for (var j = 0; j < list.length; j++) {
+      if (matchItem(list[j], id) && list[j].status === '已通过') {
+        var cloud = list[j];
+        if (!found || JSON.stringify(found) !== JSON.stringify(cloud)) {
           render(cloud);
         }
         break;
@@ -292,7 +444,7 @@ function matchTech(t, id) {
     }
   });
 })();
-</script>
+  </script>
 <script src="cloud-config.js"></script>
 <script src="cloud-api.js"></script>
 </body>
