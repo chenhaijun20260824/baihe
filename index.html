@@ -431,6 +431,29 @@ function cleanLocalDirtyData() {
   });
 }
 
+
+function cleanLocalDirtyData() {
+  var bins = ['technicians', 'village_heads', 'villagers', 'supermarkets', 'markets', 'factories', 'customer_service', 'sales_managers', 'village_agents', 'town_agents', 'county_agents'];
+  bins.forEach(function(bin) {
+    try {
+      var key = 'rose_' + bin;
+      var raw = localStorage.getItem(key);
+      if (!raw) return;
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return;
+      var filtered = arr.filter(function(it) {
+        if (!it || !it.id) return false;
+        var nm = it.name || it.marketName || it.agentName || it.factoryName || '';
+        if (!nm || nm.indexOf('<<') >= 0 || nm.indexOf('vid') >= 0 || nm.length < 2) return false;
+        return true;
+      });
+      if (filtered.length !== arr.length) {
+        localStorage.setItem(key, JSON.stringify(filtered));
+      }
+    } catch(e) {}
+  });
+}
+
 function formatDate(ts) {
   if (!ts) return '';
   var d = new Date(ts);
@@ -521,6 +544,22 @@ function renderAllItems() {
     var nm = getItemTitle(t);
     return nm && nm.indexOf('<<') < 0 && nm.indexOf('vid') < 0 && nm !== '\u672a\u77e5' && nm.length >= 2;
   });
+  // 兜底推断 role：历史数据可能没 role 字段，按 id 前缀推算
+  allPassedItems.forEach(function(it) {
+    if (!it.role && it.id) {
+      if (it.id.indexOf('vh_')===0) it.role = 'village_head';
+      else if (it.id.indexOf('t_')===0) it.role = 'technician';
+      else if (it.id.indexOf('v_')===0) it.role = 'villager';
+      else if (it.id.indexOf('s_')===0) it.role = 'supermarket';
+      else if (it.id.indexOf('m_')===0) it.role = 'market';
+      else if (it.id.indexOf('f_')===0) it.role = 'factory';
+    }
+  });
+  // 双保险：过滤无效 name
+  allPassedItems = allPassedItems.filter(function(t) {
+    var nm = getItemTitle(t);
+    return nm && nm.indexOf('<<') < 0 && nm.indexOf('vid') < 0 && nm !== '\u672a\u77e5' && nm.length >= 2;
+  });
   var filtered = allPassedItems;
   if (currentFilterRole !== 'all') {
     filtered = filtered.filter(function(t) { return t.role === currentFilterRole; });
@@ -575,6 +614,7 @@ function doSearch(q) {
 }
 
 function refreshHome() {
+  cleanLocalDirtyData();
   cleanLocalDirtyData();
   // 加载所有角色的已通过数据
   var allKeys = ALL_ROLE_KEYS.map(function(k) { return ROLE_CONFIG[k].bin; });
