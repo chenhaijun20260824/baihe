@@ -138,11 +138,7 @@ var JB = {
     try { localStorage.setItem(this._deletedKey(binKey), JSON.stringify(d)); } catch (e) {}
   }
 };
-
-// 页面加载后如有适配器则静默同步；纯本地模式下直接 no-op（不联网、不弹窗）
 setTimeout(function () { try { JB.syncAll(); } catch (e) {} }, 800);
-
-// 全局错误捕获（保留，便于排查）
 window.onerror = function (m, s, l, c) {
   try {
     var d = document.createElement("div");
@@ -152,17 +148,9 @@ window.onerror = function (m, s, l, c) {
   } catch (e) {}
   return false;
 };
+  </script>
 
-/*
- * 可选多端同步：在引入本文件之后、页面逻辑之前设置 window.RoseSyncAdapter 即可，
- * 例如 local-api.js。本地永远优先，后端不可用也不影响本机数据。
- */
-</script>
-
-
-
-
-  <title>注册账号 - 百合上门</title>
+  <title>注册账号 - 百合网络</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #FFF5F7; color: #333; min-height: 100vh; display: flex; flex-direction: column; }
@@ -185,7 +173,7 @@ window.onerror = function (m, s, l, c) {
   </style>
 
   <!-- PWA 配置 -->
-  <link rel="manifest" href="manifest.json?v=20260817">
+  <link rel="manifest" href="manifest.json?v=20260916">
   <meta name="theme-color" content="#C2185B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -217,8 +205,8 @@ window.imgErr = function(img) {
         <input class="form-input" id="pwd2" type="password" placeholder="再次输入密码">
       </div>
       <button class="btn" id="submitBtn" onclick="doRegister()">注册并跳转填写资料</button>
-      <div class="tip">已有账号？<a href="login.html?v=20260817">立即登录</a></div>
-      <div class="back"><a href="index.html?v=20260817">← 返回首页</a></div>
+      <div class="tip">已有账号？<a href="login.html?v=20260916">立即登录</a></div>
+      <div class="back"><a href="index.html?v=20260916">← 返回首页</a></div>
     </div>
   </div>
   <div id="toastBox"></div>
@@ -248,21 +236,20 @@ function doRegister() {
   btn.disabled = true;
   btn.textContent = '注册中...';
 
-  // 立即写入本地（不依赖网络）
   var newUser = {
     id: 'u_' + genId(),
     account: phone,
     password: pwd,
+    role: 'technician',
     registerTime: Date.now()
   };
   localStorage.setItem('rose_current_user', JSON.stringify(newUser));
 
-  // 云端去重检查（3秒超时兜底），超时直接放行
   var checked = false;
   var timer = setTimeout(function() {
     checked = true;
     toast('注册成功 ✓（本地模式）');
-    setTimeout(function() { location.href='profile.html?v=20260817'; }, 600);
+    setTimeout(function() { location.href='profile.html?v=20260916'; }, 600);
   }, 3000);
 
   JB.get('accounts', function(list) {
@@ -270,7 +257,6 @@ function doRegister() {
     clearTimeout(timer);
     checked = true;
     if (!Array.isArray(list)) list = [];
-    // 检查手机号是否已注册
     for (var i = 0; i < list.length; i++) {
       if (list[i].account === phone) { toast('该手机号已注册'); btn.disabled = false; btn.textContent = '注册并跳转填写资料'; localStorage.removeItem('rose_current_user'); return; }
     }
@@ -279,19 +265,17 @@ function doRegister() {
       if (ok) {
         toast('注册成功 ✓');
       } else {
-        // 云端写入失败：多半是没连云端（没输 Token）或网络不通
         toast('⚠️ 云端保存失败：请先回首页点「☁️ 连接云端」再注册');
       }
-      setTimeout(function() { location.href='profile.html?v=20260824'; }, 600);
+      setTimeout(function() { location.href='profile.html?v=20260916'; }, 600);
     });
   });
 }
 </script>
 
 <script>
-// 注册 Service Worker (PWA)
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=20260824b')
+  navigator.serviceWorker.register('sw.js?v=20260916')
     .then(function(reg) { console.log('[PWA] SW 注册成功:', reg.scope); })
     .catch(function(err) { console.log('[PWA] SW 注册失败:', err); });
 }
