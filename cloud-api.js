@@ -30,12 +30,16 @@
   function loadCfg() {
     try {
       var raw = localStorage.getItem(LS_KEY);
-      if (raw) { var c = JSON.parse(raw); if (c && c.token) return norm(c); }
+      if (raw) { var c = JSON.parse(raw); if (c && (c.token || c.owner)) return norm(c); }
     } catch (e) {}
     try {
       if (window.BAIHE_CLOUD && window.BAIHE_CLOUD.token) return norm(window.BAIHE_CLOUD);
     } catch (e) {}
-    return null;
+    // 兜底：即使没有 token 也返回默认配置（只读模式，pull 用 raw 匿名访问无需 token）
+    try {
+      if (window.BAIHE_CLOUD) return norm(window.BAIHE_CLOUD);
+    } catch (e) {}
+    return norm(DEFAULTS);
   }
 
   var cfg = loadCfg();
