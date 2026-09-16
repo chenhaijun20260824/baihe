@@ -9,7 +9,22 @@
  * 多端同步：给 window.RoseSyncAdapter 赋值适配器即可（见 local-api.js 示例）。
  */
 var JB = {
-  BINS: { accounts: 'accounts', technicians: 'technicians', notices: 'notices', audit_log: 'audit_log' },
+  BINS: {
+    accounts: 'accounts',
+    technicians: 'technicians',
+    notices: 'notices',
+    audit_log: 'audit_log',
+    village_heads: 'village_heads',
+    villagers: 'villagers',
+    supermarkets: 'supermarkets',
+    markets: 'markets',
+    factories: 'factories',
+    customer_service: 'customer_service',
+    sales_managers: 'sales_managers',
+    village_agents: 'village_agents',
+    town_agents: 'town_agents',
+    county_agents: 'county_agents'
+  },
   _adapterNow: function () {
     try { return (typeof window !== 'undefined' && window.RoseSyncAdapter) ? window.RoseSyncAdapter : null; }
     catch (e) { return null; }
@@ -150,17 +165,9 @@ window.onerror = function (m, s, l, c) {
   } catch (e) {}
   return false;
 };
+  </script>
 
-/*
- * 可选多端同步：在引入本文件之后、页面逻辑之前设置 window.RoseSyncAdapter 即可，
- * 例如 local-api.js。本地永远优先，后端不可用也不影响本机数据。
- */
-</script>
-
-  <!-- ☁️ 云端同步内嵌配置：仅供本人使用，请勿把本文件分享给他人 -->
-  
-
-  <title>百合上门</title>
+  <title>百合网络</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #FFF5F7; color: #333; min-height: 100vh; padding-bottom: 60px; }
@@ -172,18 +179,18 @@ window.onerror = function (m, s, l, c) {
     .tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
     .tech-card { background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06); cursor: pointer; transition: transform .1s; }
     .tech-card:active { transform: scale(.97); }
-    .tech-card img { width: 100%; height: 160px; object-fit: cover; }
     .tech-photos { display: flex; flex-wrap: wrap; gap: 2px; background: #fce4ec; }
     .tech-photos img { flex: 1 0 31%; width: auto; height: 72px; object-fit: cover; border-radius: 3px; }
     .tech-card-body { padding: 10px 12px; }
-    .tech-name { font-weight: bold; font-size: 15px; color: #C2185B; margin-bottom: 4px; }
+    .tech-name { font-weight: bold; font-size: 15px; color: #C2185B; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
     .tech-meta { font-size: 12px; color: #888; }
     .tech-price { color: #E91E63; font-size: 14px; font-weight: bold; margin-top: 4px; }
-    .new-badge { background: #4CAF50; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+    .new-badge { background: #4CAF50; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 20px; margin-left: 4px; vertical-align: middle; }
+    .role-badge { background: #fce4ec; color: #C2185B; font-size: 11px; padding: 1px 6px; border-radius: 20px; margin-left: 4px; }
     .empty { text-align: center; color: #bbb; padding: 30px; font-size: 14px; }
     .footer { text-align: center; padding: 20px; font-size: 12px; color: #bbb; }
     .footer a { color: #C2185B; text-decoration: none; }
-    
+
     .top-bar { display: flex; gap: 10px; padding: 12px 16px; max-width: 700px; margin: 0 auto; flex-wrap: wrap; }
     .top-btn { flex: 1; min-width: 80px; background: #fff; border: 1.5px solid #f0f0f0; border-radius: 10px; padding: 10px 8px; text-align: center; font-size: 13px; cursor: pointer; text-decoration: none; color: #333; }
     .top-btn:active { background: #fce4ec; }
@@ -192,12 +199,19 @@ window.onerror = function (m, s, l, c) {
     .search-bar input:focus { border-color: #E91E63; }
     .search-tip { text-align: center; font-size: 13px; color: #C2185B; padding: 8px 16px; max-width: 700px; margin: 0 auto; }
     .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,.8); color: #fff; padding: 12px 28px; border-radius: 10px; font-size: 14px; z-index: 99999; pointer-events: none; white-space: nowrap; }
-  
-  .cloud-status a { color: #1B5E20; }
+
+    .role-tabs { display: flex; gap: 8px; padding: 12px 16px 0; max-width: 700px; margin: 0 auto; flex-wrap: wrap; }
+    .role-tab { background: #fff; border: 1.5px solid #eee; border-radius: 20px; padding: 6px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: #666; white-space: nowrap; }
+    .role-tab.active { background: #C2185B; color: #fff; border-color: #C2185B; }
+    .role-tab:active { opacity: .8; }
+    .role-tab-count { background: rgba(255,255,255,.3); border-radius: 20px; padding: 0 6px; font-size: 11px; }
+    .role-tab:not(.active) .role-tab-count { background: #fce4ec; color: #C2185B; }
+
+    .cloud-status a { color: #1B5E20; }
   </style>
 
   <!-- PWA 配置 -->
-  <link rel="manifest" href="manifest.json?v=20260817">
+  <link rel="manifest" href="manifest.json?v=20260916">
   <meta name="theme-color" content="#C2185B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -212,34 +226,39 @@ window.imgErr = function(img) {
 </script>
 </head>
 <body>
-  <div class="header">百合上门</div>
+  <div class="header">百合网络</div>
 
   <div class="top-bar">
-    <a class="top-btn" href="login.html?v=20260817">👤 登录</a>
-    <a class="top-btn" href="register_v2.html?v=20260824">📝 注册</a>
-    <a class="top-btn" href="profile.html?v=20260817">💆 我的</a>
+    <a class="top-btn" href="login.html?v=20260916">👤 登录</a>
+    <a class="top-btn" href="register_v2.html?v=20260916">📝 注册</a>
+    <a class="top-btn" href="profile.html?v=20260916">💆 我的</a>
     <a id="cloudBadge" class="top-btn" href="javascript:void(0)" onclick="openCloudModal()" style="border-color:#e0e0e0;color:#888;">☁️ 云端</a>
-    </div>
+  </div>
 
   <div class="search-bar">
-    <input id="searchInput" type="search" placeholder="🔍 搜索 技师名字 / 服务地址 / 服务项目" oninput="doSearch(this.value)" />
+    <input id="searchInput" type="search" placeholder="🔍 搜索 姓名 / 地址 / 服务" oninput="doSearch(this.value)" />
   </div>
   <div id="searchTip" class="search-tip" style="display:none;"></div>
+
+  <!-- 角色分类Tab -->
+  <div class="role-tabs" id="roleTabs"></div>
 
   <div class="section">
     <div class="section-title">📢 公告</div>
     <div id="noticeBox">
       <div class="notice-box">
-        <div class="notice-title">欢迎使用百合上门平台</div>
-        <div style="color:#555;white-space:pre-wrap;line-height:1.6;">点击右上角「登录/注册」提交技师资料，审核通过后即可在首页展示。</div>
+        <div class="notice-title">欢迎使用百合网络平台</div>
+        <div style="color:#555;white-space:pre-wrap;line-height:1.6;">点击右上角「登录/注册」提交资料，审核通过后即可在首页展示。</div>
       </div>
     </div>
 
-    <div class="section-title" id="newSectionTitle">🌟 新人上线</div>
-    <div id="newBox" class="tech-grid"></div>
+    <div id="contentArea">
+      <div id="newSectionTitle" class="section-title" style="display:none;">🌟 新人上线</div>
+      <div id="newBox" class="tech-grid"></div>
 
-    <div class="section-title">💆 技师展示</div>
-    <div id="techBox" class="tech-grid"></div>
+      <div class="section-title" id="mainSectionTitle">🌹 全部展示</div>
+      <div id="techBox" class="tech-grid"></div>
+    </div>
   </div>
 
   <div class="footer">
@@ -247,6 +266,25 @@ window.imgErr = function(img) {
   </div>
 
   <script>
+// ==================== 角色配置 ====================
+var ROLE_CONFIG = {
+  technician: { name: '技师', icon: '💆', bin: 'technicians' },
+  village_head: { name: '村长', icon: '🏘️', bin: 'village_heads' },
+  villager: { name: '村民', icon: '🧑‍🌾', bin: 'villagers' },
+  supermarket: { name: '超市', icon: '🏪', bin: 'supermarkets' },
+  market: { name: '农贸市场', icon: '🥬', bin: 'markets' },
+  factory: { name: '企业工厂', icon: '🏭', bin: 'factories' },
+  customer_service: { name: '客服', icon: '🎧', bin: 'customer_service' },
+  sales_manager: { name: '销售经理', icon: '📊', bin: 'sales_managers' },
+  village_agent: { name: '村级代理', icon: '📍', bin: 'village_agents' },
+  town_agent: { name: '镇级代理', icon: '📌', bin: 'town_agents' },
+  county_agent: { name: '县级代理', icon: '🗺️', bin: 'county_agents' }
+};
+
+var ALL_ROLE_KEYS = Object.keys(ROLE_CONFIG);
+var currentFilterRole = 'all';
+var allPassedItems = []; // 所有已通过记录
+
 function toast(msg) {
   var el = document.createElement('div');
   el.className = 'toast';
@@ -276,110 +314,221 @@ function escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
-function renderTechs(list, boxId, isNew) {
-  var box = document.getElementById(boxId);
+function renderRoleTabs() {
+  var tabsEl = document.getElementById('roleTabs');
+  var html = '<div class="role-tab' + (currentFilterRole === 'all' ? ' active' : '') + '" onclick="filterByRole(\'all\')">全部 <span class="role-tab-count">' + allPassedItems.length + '</span></div>';
+  ALL_ROLE_KEYS.forEach(function(key) {
+    var cfg = ROLE_CONFIG[key];
+    var count = allPassedItems.filter(function(item) { return item.role === key; }).length;
+    if (count === 0) return;
+    html += '<div class="role-tab' + (currentFilterRole === key ? ' active' : '') + '" onclick="filterByRole(\'' + key + '\')">' + cfg.icon + ' ' + cfg.name + ' <span class="role-tab-count">' + count + '</span></div>';
+  });
+  tabsEl.innerHTML = html;
+}
+
+function filterByRole(role) {
+  currentFilterRole = role;
+  renderRoleTabs();
+  renderAllItems();
+}
+
+function getItemKey(item) {
+  return item.id || item.accountId || item.account || '';
+}
+
+function getDetailUrl(item) {
+  var key = getItemKey(item);
+  return 'technician-detail.html?v=20260916&type=' + encodeURIComponent(item.role || 'technician') + '&id=' + encodeURIComponent(key);
+}
+
+function getItemTitle(item) {
+  // 不同角色的主标题字段
+  if (item.role === 'technician') return item.name || '技师';
+  if (item.role === 'village_head') return item.name ? (item.name + '（村长）') : '村长';
+  if (item.role === 'villager') return item.name || '村民';
+  if (item.role === 'supermarket') return item.marketName || item.name || '超市';
+  if (item.role === 'market') return item.marketName || item.name || '农贸市场';
+  if (item.role === 'factory') return item.factoryName || item.name || '企业工厂';
+  if (item.role === 'customer_service') return item.name ? (item.name + '（客服）') : '客服';
+  if (item.role === 'sales_manager') return item.name ? (item.name + '（销售经理）') : '销售经理';
+  if (item.role === 'village_agent') return item.agentName || item.name || '村级代理';
+  if (item.role === 'town_agent') return item.agentName || item.name || '镇级代理';
+  if (item.role === 'county_agent') return item.agentName || item.name || '县级代理';
+  return item.name || '未知';
+}
+
+function getItemSub(item) {
+  var parts = [];
+  if (item.province || item.city || item.county) parts.push([item.province, item.city, item.county].filter(Boolean).join(''));
+  if (item.village) parts.push(item.village + '村');
+  if (item.town) parts.push(item.town + '镇');
+  if (item.address) parts.push(item.address);
+  return parts.join(' · ') || '未填地址';
+}
+
+function getItemExtra(item) {
+  if (item.role === 'technician') return '¥' + (item.price || '?') + ' / 次';
+  if (item.role === 'villager') {
+    var extras = [];
+    if (item.products && item.products.length) extras.push('农产品' + item.products.length + '种');
+    if (item.crafts && item.crafts.length) extras.push('手工' + item.crafts.length + '种');
+    if (item.skills && item.skills.length) extras.push('技能' + item.skills.length + '项');
+    if (item.jobStatus) extras.push(item.jobStatus);
+    return extras.join(' · ') || '';
+  }
+  if (item.role === 'factory') {
+    var fExtras = [];
+    if (item.jobs && item.jobs.length) fExtras.push('招工' + item.jobs.length + '个岗位');
+    if (item.farmDemand) fExtras.push('需农产品');
+    return fExtras.join(' · ') || '';
+  }
+  if (item.role === 'town_agent' || item.role === 'county_agent') {
+    var aExtras = [];
+    if (item.developedCount) aExtras.push('发展' + item.developedCount + '人');
+    if (item.developedFactoriesCount) aExtras.push('发展' + item.developedFactoriesCount + '家工厂');
+    return aExtras.join(' · ') || '';
+  }
+  if (item.role === 'village_agent') {
+    return item.developedCount ? '发展' + item.developedCount + '人' : '';
+  }
+  return '';
+}
+
+function getRoleIcon(role) {
+  var cfg = ROLE_CONFIG[role];
+  return cfg ? cfg.icon : '👤';
+}
+
+function getRoleName(role) {
+  var cfg = ROLE_CONFIG[role];
+  return cfg ? cfg.name : role;
+}
+
+function renderCard(item, isNew) {
+  var key = getItemKey(item);
+  if (!key) return '';
   var now = Date.now();
   var sevenDays = 7 * 24 * 60 * 60 * 1000;
-  var filtered = list.filter(function(t) {
-    if (t.status !== '已通过') return false;
-    if (isNew) {
-      // 新人上线：审核通过 7 天内
-      if (!t.auditTime) return false;
-      return (now - t.auditTime) <= sevenDays;
-    } else {
-      // 技师展示：所有已通过（不限时间）
-      return !!t.auditTime;
+  var isRecent = item.auditTime && ((now - item.auditTime) <= sevenDays);
+  var photosHtml = '';
+  if (item.photos && item.photos.length > 0) {
+    for (var pi = 0; pi < item.photos.length; pi++) {
+      photosHtml += '<img src="' + escapeHtml(item.photos[pi]) + '" onerror="imgErr(this)">';
     }
-  });
-  
-  // 置顶排序：有 top 字段的技师排最前（置顶时间倒序），其余保持原顺序
-  filtered.sort(function(a, b) {
-    var at = a.top || 0, bt = b.top || 0;
-    if (at && bt) return bt - at;
-    if (at) return -1;
-    if (bt) return 1;
-    return 0;
-  });
-  if (filtered.length === 0) {
-    box.innerHTML = '<div class="empty">' + (isNew ? '暂无新人上线' : '暂无技师') + '</div>';
-    return;
+  } else {
+    var icon = getRoleIcon(item.role || 'technician');
+    photosHtml = '<div style="flex:1;height:70px;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">' + icon + '</div>'.repeat(3).split('>').slice(0,-1).join('>').split('').reverse().join('') + '' +
+      '<div style="display:flex;height:70px;">' +
+      '<div style="flex:1;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">' + icon + '</div>' +
+      '<div style="flex:1;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">' + icon + '</div>' +
+      '<div style="flex:1;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">' + icon + '</div>' +
+      '</div>';
   }
-  var html = '';
-  for (var i = 0; i < filtered.length; i++) {
-    var t = filtered[i];
-    var techKey = t.id || t.accountId || t.account || '';
-    // 判断是否新人（7天内审核通过）
-    var isRecent = t.auditTime && ((now - t.auditTime) <= sevenDays);
-    // 渲染所有照片（最多9张）
-    var photosHtml = '';
-    if (t.photos && t.photos.length > 0) {
-      var shown = t.photos;
-      for (var pi = 0; pi < shown.length; pi++) {
-        photosHtml += '<img src="' + escapeHtml(shown[pi]) + '" onerror="imgErr(this)">';
-      }
-    } else {
-      photosHtml = '<div style="flex:1;height:70px;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">💆</div>' +
-                  '<div style="flex:1;height:70px;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">💆</div>' +
-                  '<div style="flex:1;height:70px;background:#fce4ec;display:flex;align-items:center;justify-content:center;color:#C2185B;font-size:28px;">💆</div>';
-    }
-    var img = '<div class="tech-photos">' + photosHtml + '</div>';
-    var badge = (isNew && isRecent) ? '<span class="new-badge">新</span>' : '';
-    html += '<div class="tech-card" onclick="location.href=\'technician-detail.html?v=20260817&id=' + encodeURIComponent(techKey) + '\'">' +
-      img +
-      '<div class="tech-card-body">' +
-        '<div class="tech-name">' + escapeHtml(t.name) + badge + '</div>' +
-        '<div class="tech-meta">📍 ' + escapeHtml(t.address || '未填') + '</div>' +
-        '<div class="tech-meta">📞 ' + escapeHtml(t.phone || '未填') + '</div>' +
-        '<div class="tech-price">¥' + escapeHtml(t.price || '?') + ' / 次</div>' +
-      '</div>' +
-    '</div>';
-  }
-  box.innerHTML = html;
+  var img = '<div class="tech-photos">' + photosHtml + '</div>';
+  var badge = (isNew && isRecent) ? '<span class="new-badge">新</span>' : '';
+  var roleBadge = item.role && item.role !== 'technician' ? '<span class="role-badge">' + getRoleIcon(item.role) + '</span>' : '';
+  var title = getItemTitle(item);
+  var sub = getItemSub(item);
+  var extra = getItemExtra(item);
+  return '<div class="tech-card" onclick="location.href=\'' + getDetailUrl(item) + '\'">' +
+    img +
+    '<div class="tech-card-body">' +
+      '<div class="tech-name">' + escapeHtml(title) + badge + roleBadge + '</div>' +
+      '<div class="tech-meta">📍 ' + escapeHtml(sub) + '</div>' +
+      (item.phone ? '<div class="tech-meta">📞 ' + escapeHtml(item.phone) + '</div>' : '') +
+      (extra ? '<div class="tech-price">' + escapeHtml(extra) + '</div>' : '') +
+    '</div>' +
+  '</div>';
 }
 
-var allTechs = [];
+function renderAllItems() {
+  var newBox = document.getElementById('newBox');
+  var techBox = document.getElementById('techBox');
+  var newTitle = document.getElementById('newSectionTitle');
+  var mainTitle = document.getElementById('mainSectionTitle');
+  var searchTip = document.getElementById('searchTip');
+  var q = (document.getElementById('searchInput') || {}).value || '';
+
+  // 过滤
+  var filtered = allPassedItems;
+  if (currentFilterRole !== 'all') {
+    filtered = filtered.filter(function(t) { return t.role === currentFilterRole; });
+  }
+  if (q.trim()) {
+    var qq = q.trim().toLowerCase();
+    filtered = filtered.filter(function(t) {
+      var hay = [getItemTitle(t), getItemSub(t), t.phone || '', t.name || ''].join(' ').toLowerCase();
+      return hay.indexOf(qq) >= 0;
+    });
+  }
+
+  var now = Date.now();
+  var sevenDays = 7 * 24 * 60 * 60 * 1000;
+  var recent = filtered.filter(function(t) { return t.auditTime && ((now - t.auditTime) <= sevenDays); });
+  var older = filtered.filter(function(t) { return !t.auditTime || ((now - t.auditTime) > sevenDays); });
+
+  // 置顶排序
+  function sortByTop(arr) {
+    return arr.slice().sort(function(a, b) {
+      var at = a.top || 0, bt = b.top || 0;
+      if (at && bt) return bt - at;
+      if (at) return -1;
+      if (bt) return 1;
+      return 0;
+    });
+  }
+
+  if (q.trim()) {
+    if (newTitle) newTitle.style.display = 'none';
+    if (newBox) newBox.innerHTML = '';
+    if (techBox) techBox.innerHTML = filtered.length > 0
+      ? filtered.map(function(t) { return renderCard(t, false); }).join('')
+      : '<div class="empty">未找到匹配的记录，换个关键词试试</div>';
+    if (searchTip) { searchTip.style.display = 'block'; searchTip.textContent = '🔍 找到 ' + filtered.length + ' 条匹配记录'; }
+  } else {
+    if (searchTip) searchTip.style.display = 'none';
+    recent = sortByTop(recent);
+    older = sortByTop(older);
+    if (newTitle) newTitle.style.display = recent.length > 0 ? '' : 'none';
+    if (newBox) newBox.innerHTML = recent.length > 0
+      ? recent.map(function(t) { return renderCard(t, true); }).join('')
+      : '<div class="empty">暂无新人上线</div>';
+    if (techBox) techBox.innerHTML = older.length > 0
+      ? older.map(function(t) { return renderCard(t, false); }).join('')
+      : '<div class="empty">暂无其他记录</div>';
+  }
+}
 
 function doSearch(q) {
-  q = (q || '').trim().toLowerCase();
-  var tip = document.getElementById('searchTip');
-  var newTitle = document.getElementById('newSectionTitle');
-  var newBox = document.getElementById('newBox');
-  if (!q) {
-    if (tip) tip.style.display = 'none';
-    if (newTitle) newTitle.style.display = '';
-    renderTechs(allTechs, 'newBox', true);
-    renderTechs(allTechs, 'techBox', false);
-    return;
-  }
-  var filtered = (allTechs || []).filter(function(t) {
-    if (!t || t.status !== '已通过') return false;
-    var hay = [t.name, t.address, t.services].join(' ').toLowerCase();
-    return hay.indexOf(q) >= 0;
-  });
-  if (newTitle) newTitle.style.display = 'none';
-  if (newBox) newBox.innerHTML = '';
-  renderTechs(filtered, 'techBox', false);
-  if (tip) {
-    tip.style.display = 'block';
-    tip.textContent = filtered.length > 0 ? ('🔍 找到 ' + filtered.length + ' 位匹配技师') : '未找到匹配的技师，换个关键词试试';
-  }
+  renderAllItems();
 }
 
-var _homeNotices = [];
 function refreshHome() {
-  JB.get('technicians', function(data) {
-    allTechs = Array.isArray(data) ? data : [];
-    renderTechs(allTechs, 'newBox', true);
-    renderTechs(allTechs, 'techBox', false);
+  // 加载所有角色的已通过数据
+  var allKeys = ALL_ROLE_KEYS.map(function(k) { return ROLE_CONFIG[k].bin; });
+  var loaded = 0;
+  allPassedItems = [];
+  allKeys.forEach(function(binKey) {
+    JB.get(binKey, function(data) {
+      if (Array.isArray(data)) {
+        data.forEach(function(item) {
+          if (item.status === '已通过') allPassedItems.push(item);
+        });
+      }
+      loaded++;
+      if (loaded === allKeys.length) {
+        renderRoleTabs();
+        renderAllItems();
+      }
+    });
   });
   JB.get('notices', function(data) {
-    _homeNotices = Array.isArray(data) ? data : [];
-    renderNotice(_homeNotices);
+    if (Array.isArray(data)) renderNotice(data);
   });
 }
+
 function init() {
   refreshHome();
-  // 切回标签页 / 重新显示时自动重新拉取，确保显示最新审核通过的技师（多设备同步）
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshHome(); });
   window.addEventListener('pageshow', function () { refreshHome(); });
 }
@@ -481,21 +630,21 @@ function disconnectCloud() {
 
 renderCloudBadge();
 init();
-</script>
+  </script>
 
 <script>
 // 注册 Service Worker (PWA)
 if ('serviceWorker' in navigator) {
   try {
-    navigator.serviceWorker.register('sw.js?v=20260824')
+    navigator.serviceWorker.register('sw.js?v=20260916')
       .then(function(reg) { console.log('[PWA] SW 注册成功:', reg.scope); })
       .catch(function(err) { console.log('[PWA] SW 注册失败:', err); });
   } catch (e) { console.warn('[PWA] SW 不可用（沙箱/隐私模式）', e); }
 }
 </script>
-<div style="text-align:center;font-size:11px;color:#999;padding:12px 0 20px;">v2.2 · 限速修复版 · 2026-08-15</div>
+<div style="text-align:center;font-size:11px;color:#999;padding:12px 0 20px;">v2.3 · 多角色版 · 2026-09-16</div>
 
-  <!-- 云端连接弹窗（极简：只填 Token） -->
+  <!-- 云端连接弹窗 -->
   <div id="cloudModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)closeCloudModal()">
     <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.2);">
       <div id="cloudModalBody"></div>
