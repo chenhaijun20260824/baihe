@@ -395,6 +395,17 @@ function getItemExtra(item) {
   return '';
 }
 
+function formatDate(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  var hh = String(d.getHours()).padStart(2, '0');
+  var mi = String(d.getMinutes()).padStart(2, '0');
+  return y + '-' + m + '-' + dd + ' ' + hh + ':' + mi;
+}
+
 function getRoleIcon(role) {
   var cfg = ROLE_CONFIG[role];
   return cfg ? cfg.icon : '👤';
@@ -443,6 +454,8 @@ function renderCard(item, isNew) {
       '<div class="tech-meta">📍 ' + escapeHtml(sub) + '</div>' +
       (item.phone ? '<div class="tech-meta">📞 ' + escapeHtml(item.phone) + '</div>' : '') +
       (extra ? '<div class="tech-price">' + escapeHtml(extra) + '</div>' : '') +
+    (item.submitTime ? '<div class="tech-meta" style="font-size:11px;color:#999;">✍️ 申请：' + formatDate(item.submitTime) + '</div>' : '') +
+    (item.auditTime ? '<div class="tech-meta" style="font-size:11px;color:#999;">✅ 上线：' + formatDate(item.auditTime) + '</div>' : '') +
     '</div>' +
   '</div>';
 }
@@ -518,11 +531,32 @@ function refreshHome() {
     JB.get(binKey, function(data) {
       if (Array.isArray(data)) {
         data.forEach(function(item) {
-          if (item.status === '已通过') allPassedItems.push(item);
+          if (item.status === '已通过') {
+            // 过滤无效 name（含 << / vid / 未知 / 长度<2）
+            var t = getItemTitle(item);
+            if (!t || t.indexOf('<<') >= 0 || t.indexOf('vid') >= 0 || t === '未知' || t.length < 2) return;
+            allPassedItems.push(item);
+          }
         });
       }
       loaded++;
       if (loaded === allKeys.length) {
+        // 按 id 去重（保留 updateTime 最大的）
+        var seen = {};
+        var dedup = [];
+        allPassedItems.forEach(function(it) {
+          var k = it.id || (it.accountId + '_' + (it.role || 'technician'));
+          if (!seen[k]) {
+            seen[k] = it;
+            dedup.push(it);
+          } else if (it.updateTime && it.updateTime > seen[k].updateTime) {
+            var idx = dedup.indexOf(seen[k]);
+            if (idx >= 0) dedup.splice(idx, 1);
+            seen[k] = it;
+            dedup.push(it);
+          }
+        });
+        allPassedItems = dedup;
         renderRoleTabs();
         renderAllItems();
       }
@@ -532,7 +566,6 @@ function refreshHome() {
     if (Array.isArray(data)) renderNotice(data);
   });
 }
-
 function init() {
   refreshHome();
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshHome(); });
