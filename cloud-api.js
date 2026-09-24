@@ -90,7 +90,7 @@
         try { var a = JSON.parse(txt); cb(Array.isArray(a) ? a : [], true); }
         catch (e) { cb([], true); }
       })
-      .catch(function () { cb([], false); });
+      .catch(function (e) { console.warn('[cloud] pull ' + binKey + ' 失败:', e && e.message); cb([], false); });
   }
 
   function getSha(binKey) {
@@ -151,6 +151,15 @@
 
   function status(cb) {
     if (!cfg) { cb(false, false, ''); return; }
+
+    // 无 Token：读取走匿名 raw（不需要任何授权），属于「只读已连接」状态
+    if (!cfg.token) {
+      fetch(rawUrl('accounts.json'))
+        .then(function (r) { cb(true, r.status === 200 || r.status === 404, cfg.owner + '/' + cfg.repo + '（只读：可查看，写入需填 Token）'); })
+        .catch(function () { cb(true, false, cfg.owner + '/' + cfg.repo + '（只读）'); });
+      return;
+    }
+
     fetch('https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo, {
       headers: { 'Authorization': 'token ' + cfg.token, 'Accept': 'application/vnd.github+json' }
     })
