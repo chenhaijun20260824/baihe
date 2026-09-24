@@ -3,8 +3,9 @@
  * 实现 window.RoseSyncAdapter 接口（pull / push / status）。
  *
  * 配置来源（优先级）：
- *   1) localStorage 键 '百合_cloud_cfg'
- *   2) window.BAIHE_CLOUD（cloud-config.js）
+ *   1) window.BAIHE_CLOUD 中 hardcode:true 的固化 Token（cloud-config.js，最高优先）
+ *   2) localStorage 键 '百合_cloud_cfg'（设备本地保存）
+ *   3) window.BAIHE_CLOUD 中未固化的 Token
  * 字段：{ token, owner, repo, branch='main', path='data' }
  *
  * 读取：anonymous raw.githubusercontent.com，无截断（不受 Gist 4MB 限制）。
@@ -28,14 +29,34 @@
     };
   }
   function loadCfg() {
+    var hc = null;
+    try { hc = window.BAIHE_CLOUD || null; } catch (e) {}
+
+    // 【优先级 1】程序内固化的 Token（cloud-config.js 里 hardcode:true）
+    // 目的：每台设备打开即自动连云端；并自动覆盖设备上残留的旧 Token，
+    //       避免“旧 Token 盖掉新 Token”导致连接失败（这是之前失败的原因）。
+    if (hc && hc.token && hc.hardcode) {
+      try {
+        var raw0 = localStorage.getItem(LS_KEY);
+        var old0 = raw0 ? JSON.parse(raw0) : null;
+        var ver = hc.version || '';
+        if (!old0 || old0.token !== hc.token || old0._ver !== ver) {
+          var merged = norm(hc);
+          merged._ver = ver;
+          localStorage.setItem(LS_KEY, JSON.stringify(merged));
+          try { localStorage.removeItem('百合_connect_code'); } catch (e2) {}
+        }
+      } catch (e3) {}
+      return norm(hc);
+    }
+
+    // 【优先级 2】设备本地已保存的配置
     try {
       var raw = localStorage.getItem(LS_KEY);
       if (raw) { var c = JSON.parse(raw); if (c && (c.token || c.owner)) return norm(c); }
     } catch (e) {}
-    try {
-      if (window.BAIHE_CLOUD && window.BAIHE_CLOUD.token) return norm(window.BAIHE_CLOUD);
-    } catch (e) {}
-    // 兜底：即使没有 token 也返回默认配置（只读模式，pull 用 raw 匿名访问无需 token）
+
+    // 【优先级 3】cloud-config.js 中的配置（未固化）
     try {
       if (window.BAIHE_CLOUD) return norm(window.BAIHE_CLOUD);
     } catch (e) {}
