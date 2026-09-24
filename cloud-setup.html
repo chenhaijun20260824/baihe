@@ -38,7 +38,10 @@
     2. 进入仓库 → 顶部 <b>Add file → Create new file</b> → 路径填 <code>data/accounts.json</code>，内容 <code>[]</code>，提交；<br>
     3. 同样创建 <code>data/technicians.json</code> / <code>data/notices.json</code> / <code>data/audit_log.json</code>，内容都是 <code>[]</code>；<br>
     4. GitHub → <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens</b>，建一个有 <code>Contents: Read and write</code> 权限（限定到 <code>baihe-data</code> 仓库）的 Token，复制。<br>
-    <span style="color:#999">老式 Token 也行，只要勾了 <code>repo</code> 权限即可。</span>
+    <span style="color:#999">老式 Token 也行，只要勾了 <code>repo</code> 权限即可。</span><br>
+    <b style="color:#C2185B">💡 已有 Token 的话，最快是用「一键连接链接」：</b><br>
+    <code>cloud-setup.html#token=你的Token&amp;auto=1</code><br>
+    <span style="color:#999">在手机上打开这个链接就会自动保存并启用云端，不用手填。Token 只留在本机浏览器。</span>
   </div>
 
   <div class="form-group">
@@ -78,6 +81,29 @@ function show(msg, cls){ var t=$('tip'); t.className='tip '+cls; t.innerHTML=msg
       if (c.path) $('path').value = c.path;
     }
   } catch(e){}
+})();
+
+// ===== 一键连接：cloud-setup.html#token=xxx&auto=1 =====
+// Token 通过 URL #片段 传入 —— 片段不会发送给服务器，也不会进入仓库。
+(function(){
+  var h = (location.hash || '').replace(/^#/, '');
+  if (!h || h.indexOf('token=') < 0) return;
+  var p = {};
+  h.split('&').forEach(function(kv){
+    var i = kv.indexOf('=');
+    if (i < 0) return;
+    p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
+  });
+  if (p.token)  $('token').value  = p.token;
+  if (p.repo)   $('repo').value   = p.repo;
+  if (p.branch) $('branch').value = p.branch;
+  if (p.path)   $('path').value   = p.path;
+  // 立刻把 Token 从地址栏抹掉，避免浏览器历史 / 截图泄露
+  try { history.replaceState(null, '', location.pathname); } catch (e) { location.hash = ''; }
+  if (p.auto === '1') {
+    show('检测到一键连接，正在保存配置…', 'tip-info');
+    setTimeout(function(){ save(); }, 400);
+  }
 })();
 
 function readForm(){
