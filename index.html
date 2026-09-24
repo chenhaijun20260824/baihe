@@ -237,7 +237,7 @@ window.imgErr = function(img) {
   </div>
 
   <div class="search-bar">
-    <input id="searchInput" type="search" placeholder="🔍 搜索 姓名 / 地址 / 服务" oninput="doSearch(this.value)" />
+    <input id="searchInput" type="search" placeholder="🔍 搜索 姓名/地址/电话/服务/产品/技能" oninput="doSearch(this.value)" />
   </div>
   <div id="searchTip" class="search-tip" style="display:none;"></div>
 
@@ -518,6 +518,52 @@ function renderCard(item, isNew) {
   '</div>';
 }
 
+// 关键词搜索：把一条记录的所有可读文本拼成一个检索串（跳过图片 base64，避免变慢）
+function getSearchHay(item) {
+  if (!item) return '';
+  var buf = [];
+  function push(v) {
+    if (v === null || v === undefined) return;
+    var t = typeof v;
+    if (t === 'string') { buf.push(v); return; }
+    if (t === 'number' || t === 'boolean') { buf.push(String(v)); return; }
+    if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) push(v[i]); return; }
+    if (t === 'object') {
+      for (var k in v) {
+        if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+        if (k === 'photos' || k === 'images' || k === 'avatar' || k === 'img' || k === 'image') continue;
+        push(v[k]);
+      }
+    }
+  }
+  push(getItemTitle(item));
+  push(getItemSub(item));
+  push(item.phone);
+  push(item.name);
+  push(item.marketName);
+  push(item.factoryName);
+  push(item.agentName);
+  push(item.services);
+  push(item.products);
+  push(item.crafts);
+  push(item.skills);
+  push(item.jobStatus);
+  push(item.price);
+  push(item.province);
+  push(item.city);
+  push(item.county);
+  push(item.village);
+  push(item.town);
+  push(item.address);
+  push(item.remark);
+  push(item.note);
+  push(item.intro);
+  push(item.introduction);
+  push(item.description);
+  push((ROLE_CONFIG[item.role] && ROLE_CONFIG[item.role].name) || '');
+  return buf.join(' ').toLowerCase();
+}
+
 function renderAllItems() {
   var newBox = document.getElementById('newBox');
   var techBox = document.getElementById('techBox');
@@ -564,10 +610,14 @@ function renderAllItems() {
     filtered = filtered.filter(function(t) { return t.role === currentFilterRole; });
   }
   if (q.trim()) {
-    var qq = q.trim().toLowerCase();
+    // 支持多个关键词（空格分隔，同时命中才算匹配）
+    var words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
     filtered = filtered.filter(function(t) {
-      var hay = [getItemTitle(t), getItemSub(t), t.phone || '', t.name || ''].join(' ').toLowerCase();
-      return hay.indexOf(qq) >= 0;
+      var hay = getSearchHay(t);
+      for (var wi = 0; wi < words.length; wi++) {
+        if (hay.indexOf(words[wi]) < 0) return false;
+      }
+      return true;
     });
   }
 
@@ -593,7 +643,10 @@ function renderAllItems() {
     if (techBox) techBox.innerHTML = filtered.length > 0
       ? filtered.map(function(t) { return renderCard(t, false); }).join('')
       : '<div class="empty">未找到匹配的记录，换个关键词试试</div>';
-    if (searchTip) { searchTip.style.display = 'block'; searchTip.textContent = '🔍 找到 ' + filtered.length + ' 条匹配记录'; }
+    if (searchTip) {
+      searchTip.style.display = 'block';
+      searchTip.textContent = '🔍 关键词「' + q.trim() + '」找到 ' + filtered.length + ' 条匹配记录';
+    }
   } else {
     if (searchTip) searchTip.style.display = 'none';
     recent = sortByTop(recent);
@@ -609,6 +662,8 @@ function renderAllItems() {
 }
 
 function doSearch(q) {
+  var inp = document.getElementById('searchInput');
+  if (inp && q !== undefined && inp.value !== q) inp.value = q;
   renderAllItems();
 }
 
